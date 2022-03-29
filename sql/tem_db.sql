@@ -28,8 +28,8 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE public."Detected_Objects" (
-    "Id" bigint NOT NULL,
-    "Class" integer NOT NULL,
+    "Id" serial NOT NULL,
+    "Class" text NOT NULL,
     "Speed" double precision,
     "Distance" double precision,
     "Bounding_Box" box NOT NULL,
@@ -44,11 +44,11 @@ CREATE TABLE public."Detected_Objects" (
 --
 
 CREATE TABLE public."Frame" (
-    "Id" bigint NOT NULL,
+    "Id" serial NOT NULL,
     "Sensor_Data" bigint NOT NULL,
     "Self_Speed" double precision NOT NULL,
-    "GPS_Coords" double precision[] NOT NULL,
-    "Timestamp" time with time zone NOT NULL,
+    "GPS_Coords" double precision[2] NOT NULL,
+    "Timestamp" bigint NOT NULL,
     "Processed" boolean DEFAULT false NOT NULL
 );
 
@@ -60,7 +60,7 @@ CREATE TABLE public."Frame" (
 --
 
 CREATE TABLE public."Sensor_Data" (
-    "Id" bigint NOT NULL,
+    "Id" serial NOT NULL,
     image_file text NOT NULL,
     radar_point_cloud text NOT NULL
 );
