@@ -3,6 +3,7 @@
 import sys
 import argparse
 import psycopg2
+from dataclasses import dataclass
 
 DB = 'transport_ecosystem_management_db'
 DB_USER = 'db_user'
@@ -10,11 +11,29 @@ DB_PASS = 'transport123'
 DB_HOST = 'localhost'
 DB_PORT = '5432'
 
+from utils.visualize import visualize
+
+class DBObject:
+    def __init__(self, row):
+        self.obj_class = row[0]
+        self.frame_id = row[1]
+        self.speed = row[2]
+        self.distance = row[3]
+        self.bbox = row[4]
+        self.self_speed = row[5]
+        self.gps = row[6]
+        self.timestamp = row[7]
+        self.image_file = row[8]
+        self.radar_file = row[9]
+
+
 def arg_parser() -> argparse:
 
     parser = argparse.ArgumentParser(description='Rosbag unpacker')
-    parser.add_argument('-w', '--where', help='filter database results')
-    parser.add_argument('-l', '--limit', default=10, help='number of results to receive')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-w', '--where', help='Filter database results')
+    group.add_argument('-f', '--frame', help='Search for a frame instead of an object')
+    parser.add_argument('-l', '--limit', default=10, help='Number of results to receive')
 
     args = parser.parse_args()
     return args
@@ -35,9 +54,14 @@ def main(args: argparse) -> int:
 
     cur = db_conn.cursor()
 
-    where_str = f'WHERE {args.where}' if args.where else ''
+    where_str = ''
 
-    query = f'''SELECT "Class", "Speed", "Distance", "Bounding_Box", "Self_Speed", "GPS_Coords", "Timestamp", "image_file", "radar_point_cloud" 
+    if args.where:
+        where_str = f'WHERE {args.where}'
+    elif args.frame:
+        where_str = f'WHERE "frame_id" = {args.frame}'
+
+    query = f'''SELECT "Class", "frame_id", "Speed", "Distance", "Bounding_Box", "Self_Speed", "GPS_Coords", "Timestamp", "image_file", "radar_point_cloud" 
                 FROM "Detected_Objects"
                 INNER JOIN "Frame"
                 ON "Detected_Objects"."frame_id" = "Frame"."Id"
@@ -52,18 +76,26 @@ def main(args: argparse) -> int:
 
     print()
     print('Query returned:')
+    db_objects = []
     for row in rows:
-        obj_class, speed, distance, bbox, self_speed, gps, timestamp, image_file, radar_file = row
-        print(f'Object class: {obj_class}')
-        print(f'Object speed: {speed}')
-        print(f'Object distance: {distance}')
-        print(f'Object bbox: {bbox}')
-        print(f'Recorder speed: {self_speed}')
-        print(f'Recorder GPS position: {gps}')
-        print(f'Unix timestamp: {timestamp}')
+        db_object = DBObject(row)
+        print(f'Object class: {db_object.obj_class}')
+        print(f'Frame ID: {db_object.frame_id}')
+        print(f'Object speed: {db_object.speed}')
+        print(f'Object distance: {db_object.distance}')
+        print(f'Object bbox: {db_object.bbox}')
+        print(f'Recorder speed: {db_object.self_speed}')
+        print(f'Recorder GPS position: {db_object.gps}')
+        print(f'Unix timestamp: {db_object.timestamp}')
         print()
 
+        db_objects.append(db_object)
+
     db_conn.close()
+
+    if args.frame or int(args.limit) == 1:
+        visualize(db_objects)
+
     return 0
 
 if __name__ == '__main__':
