@@ -15,7 +15,7 @@ DATA_TYPES = {
 }
 
 class PointCloud:
-    def __init__(self, ros_msg, frame_no):
+    def __init__(self, ros_msg, frame_no, is_2d=False):
         self.frame_no = frame_no
 
         self.height = ros_msg.height
@@ -24,9 +24,12 @@ class PointCloud:
         self.point_step = ros_msg.point_step
         self.is_bigendian = ros_msg.is_bigendian
         self.data = ros_msg.data
-
+        self.is_2d = is_2d
+        
         self.pcl_obj = {
-            'frame_num': int(frame_no)
+            'frame_num': int(frame_no),
+            'frame_id': ros_msg.header.frame_id,
+            'is_2d': is_2d
         }
 
         # TODO: This should not be hardcoded.

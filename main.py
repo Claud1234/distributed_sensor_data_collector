@@ -33,7 +33,8 @@ def arg_parser():
     parser = argparse.ArgumentParser(description='Rosbag unpacker')
     parser.add_argument('-r', '--rosbag', help='Rosbag to process')
     parser.add_argument('-o', '--output', help='Output directory to store the extracted frames')
-    parser.add_argument('-f', '--fps', default=DEF_FPS, help='Save data using this fps')
+    parser.add_argument('-f', '--fps', type=int, default=DEF_FPS, help='Save data using this fps')
+    parser.add_argument('-2d', '--radar-2d', action='store_true', help='Add this flag if radar is using a 2D configuration')
     parser.add_argument('-ow', '--overwrite', action='store_true', help='Overwrite the output directory')
     parser.add_argument('-p', '--progress', action='store_true', help='Display progress bar')
 

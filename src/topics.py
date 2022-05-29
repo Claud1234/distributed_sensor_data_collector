@@ -116,7 +116,6 @@ class Topics:
 
         return topic_list[0]
 
-
 @dataclass
 class LastFrame:
     """
@@ -124,9 +123,9 @@ class LastFrame:
     """
     frame_counter: 0
     timestamp: None
-    image: None
-    radar_pc: None
-    lidar_pc: None
+    images: dict()
+    radar_pc: dict()
+    lidar_pc: dict()
     gps_fix: None
 
     def has_enough_data(self, topics: Topics) -> bool:
@@ -140,16 +139,18 @@ class LastFrame:
         Returns:
             bool: True if enough data has been collected. False otherwise
         """
-        if len(topics.images) > 0 and self.image is None:
+
+        if len(topics.images) > 0 and len(self.images) != len(topics.images):
             return False
 
-        if len(topics.radar_pc) > 0 and self.radar_pc is None:
+        if len(topics.radar_pc) > 0 and len(self.radar_pc) != len(topics.radar_pc):
             return False
 
-        if len(topics.lidar_pc) > 0 and self.lidar_pc is None:
+        if len(topics.lidar_pc) > 0 and len(self.lidar_pc) != len(topics.lidar_pc):
             return False
 
         if len(topics.gps_fix) > 0 and self.gps_fix is None:
             return False
+
 
         return True

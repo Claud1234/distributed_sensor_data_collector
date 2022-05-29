@@ -40,7 +40,7 @@ class RosbagParser():
 
         self.output_folder = self._get_output_folder()
 
-        self.last_frame_msg = LastFrame(0, 0, None, None, None, None)
+        self.last_frame_msg = LastFrame(0, 0, dict(), dict(), dict(), dict())
         self.freq = int((1/args.fps) * 1e9)
 
         print(f"Saving frames after every {self.freq} ns ({self.freq / 1e9} s, {args.fps} FPS)")
@@ -138,15 +138,16 @@ class RosbagParser():
             bar = progressbar.ProgressBar(max_value=msg_count, prefix='Processing: ', redirect_stdout = True)
             
         i = 0
+
         for topic, msg, t in self.bag.read_messages():
             if self.topics.is_topic_in_group(topic, 'images'):
-                self.last_frame_msg.image = msg.data
+                self.last_frame_msg.images[topic] = msg.data
             
             elif self.topics.is_topic_in_group(topic, 'radar_pc'):
-                self.last_frame_msg.radar_pc = msg
+                self.last_frame_msg.radar_pc[topic] = msg
 
             elif self.topics.is_topic_in_group(topic, 'lidar_pc'):
-                self.last_frame_msg.lidar_pc = msg
+                self.last_frame_msg.lidar_pc[topic] = msg
 
             elif self.topics.is_topic_in_group(topic, 'gps_fix'):
                 self.last_frame_msg.gps_fix = msg
@@ -165,7 +166,7 @@ class RosbagParser():
                     self.last_frame_msg.frame_counter += 1
 
                     if self.last_frame_msg.has_enough_data(self.topics):
-                        process_frame(self.last_frame_msg, self.output_folder)
+                        process_frame(self.last_frame_msg, self.output_folder, self.args.radar_2d)
 
                 self.last_frame_msg.timestamp = time_ns
 
