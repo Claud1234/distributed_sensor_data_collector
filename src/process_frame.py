@@ -7,7 +7,7 @@ from src.debug.visualize import visualize
 from src.database_connector import add_to_db
 
 
-def process_frame(args: argparse, image_file: str, radar_file: str, detector: Detector, db_conn) -> int:
+def process_frame(args: argparse, image_file: str, radar_files: list, detector: Detector, db_conn) -> int:  
     image = cv2.imread(image_file)
 
     height = image.shape[0]
@@ -24,17 +24,16 @@ def process_frame(args: argparse, image_file: str, radar_file: str, detector: De
 
         bboxes.append(bbox)
 
-    radar_points = read_radar_points(radar_file)
+    radar_points = read_radar_points(radar_files)
 
     velocities = get_detection_speeds(bboxes, radar_points)
-
     threshold = detector.get_threshold()
 
     if args.preview:
         visualize(image, labels, scores, bboxes, threshold, radar_points, velocities)
 
-    else:
+    else: # TODO: Add support for writing multiple radar files to the DB
         if True in (scores > threshold):
-            add_to_db(db_conn, image_file, radar_file, labels, bboxes, threshold, velocities, scores)
+            add_to_db(db_conn, image_file, radar_files[0], labels, bboxes, threshold, velocities, scores)
 
     return 0

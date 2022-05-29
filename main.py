@@ -12,7 +12,7 @@ from src.process_frame import process_frame
 from src.machine_learning import Detector
 
 IMAGE_EXT = '.jpg'
-RADAR_EXT = '_radar.json'
+RADAR_EXT = '_radar_*.json'
 
 LABEL_FILE = 'assets/labels.txt'
 MODEL_URL = 'https://tfhub.dev/tensorflow/ssd_mobilenet_v2/fpnlite_640x640/1'
@@ -83,12 +83,15 @@ def main(args: argparse) -> int:
     for i, jpg in enumerate(jpg_files):
         no_ext = os.path.splitext(jpg)
         base_name = os.path.basename(no_ext[0])
-        radar_file = no_ext[0] + RADAR_EXT
+
+        # Find radar files that mach the frame
+        radar_file_regex = f'{no_ext[0]}{RADAR_EXT}'
+        radar_files = natsort.natsorted(glob.glob(os.path.join(input_path, radar_file_regex)))
 
         percentage = round(i * 100 / file_count, 1)
         print(f'Processing: {base_name} ({percentage}%)')
 
-        process_frame(args, jpg, radar_file, detector, db_conn)
+        process_frame(args, jpg, radar_files, detector, db_conn)
 
         if args.preview:
             # ESC will close the program. Also without this line the 'X' button does not work.

@@ -6,19 +6,22 @@ from dataclasses import dataclass
 class RadarPoint:
     screen_coords: tuple
     velocity: float
+    radar_id: int
 
 
-def read_radar_points(json_file):
+def read_radar_points(json_files):
     points = []
-    with open(json_file, 'r') as f:
-        data = json.load(f)
-        json_points = data.get('points', [])
 
-    for json_point in json_points:
-        point = RadarPoint(tuple(json_point.get('screen_coords', [0, 0])),
-                           json_point.get('velocity', 0))
+    for i, json_file in enumerate(json_files):
+        with open(json_file, 'r') as f:
+            data = json.load(f)
+            json_points = data.get('points', [])
 
-        points.append(point)
+        for json_point in json_points:
+            point = RadarPoint(tuple(json_point.get('screen_coords', [0, 0])),
+                            json_point.get('velocity', 0), i)
+
+            points.append(point)
 
     return points
 

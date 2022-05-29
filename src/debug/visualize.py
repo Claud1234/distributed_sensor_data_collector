@@ -79,13 +79,15 @@ def visualize_model_output(frame: np.array, boxes: np.array, scores: np.array,
 def visualize(image, labels, scores, boxes, threshold, radar_points, velocities):
     global first_frame
 
+    radar_colors = [(255, 0, 255), (255, 255, 0)]
+
     # Draw model detections
     image = visualize_model_output(image, boxes, scores, labels, velocities, threshold)
 
     # Draw radar points
     for radar_point in radar_points:
         image = cv2.circle(image, radar_point.screen_coords,
-                           radius=7, color=(255, 0, 255), thickness=-1)
+                        radius=7, color=radar_colors[radar_point.radar_id], thickness=-1)
 
     show_image(image, 'preview', 1280, 720)
 
