@@ -9,14 +9,14 @@ import cv2
 import psycopg2
 
 from src.process_frame import process_frame
-from src.machine_learning import Detector
+from src.ml_algorithms.mobilenet2_640 import Mobilenet_640_detector
+
+ML_MODEL_DICT = {
+    'mobilenetv2_640': Mobilenet_640_detector
+}
 
 IMAGE_EXT = '.jpg'
 RADAR_EXT = '_radar_*.json'
-
-LABEL_FILE = 'assets/labels.txt'
-MODEL_URL = 'https://tfhub.dev/tensorflow/ssd_mobilenet_v2/fpnlite_640x640/1'
-MODEL_DIM = 640
 
 DB = 'transport_ecosystem_management_db'
 DB_USER = 'db_user'
@@ -29,6 +29,8 @@ def arg_parser() -> argparse:
 
     parser = argparse.ArgumentParser(description='Rosbag unpacker')
     parser.add_argument('-d', '--dir', help='Input directory to process')
+    parser.add_argument('-m', '--model', help='Model to be used for detection. Required.')
+    parser.add_argument('-lm', '--list-models', action='store_true', help='Lists valid models and exits')
     parser.add_argument('-t', '--thresh', default=0.45, help='Model detection threshold')
     parser.add_argument('-p', '--preview', action='store_true', help='Visualizes all processed frames before committing '
                                                                      'the data into the database. Useful for debugging.')
@@ -37,6 +39,10 @@ def arg_parser() -> argparse:
     args = parser.parse_args()
     return args
 
+def print_models() -> None:
+    print('Valid models are:')
+    for model in ML_MODEL_DICT.keys():
+        print(f"\t* {model}")
 
 def main(args: argparse) -> int:
     input_path = os.path.abspath(os.path.expanduser(args.dir))
@@ -50,18 +56,21 @@ def main(args: argparse) -> int:
         print('ERROR: No read access to directory:', args.process_folder, file=sys.stderr)
         return 1
 
-    # Read the class labels
-    labels = dict()
-
-    # Read class file
-    with open(LABEL_FILE, 'r') as label_file:
-        label_contents = label_file.readlines()
-
-        for i, label in enumerate(label_contents):
-            labels[i] = label.strip()
+    # If valid model not specified, print the list of models and exit
+    if args.list_models or not args.model or args.model not in ML_MODEL_DICT.keys():
+        msgstr = "\nError: valid model not specified!" if not args.list_models else "\n"
+        print(msgstr)
+        print_models()
+        return 0
 
     # Machine learning
-    detector = Detector(MODEL_URL, MODEL_DIM, args.thresh, labels)
+    detector = ML_MODEL_DICT[args.model](args.thresh)
+
+    print(f"\nUsing model: {args.model}")
+    print(f"\tModel Name: {detector.get_name()}")
+    print(f"\tModel Dataset: {detector.get_dataset()}")
+    print(f"\tInput Image Dimensions: {detector.get_dim()}x{detector.get_dim()}")
+    print(f"\tThreshold cutoff: {args.thresh}\n")
 
     # Database
     db_conn = None

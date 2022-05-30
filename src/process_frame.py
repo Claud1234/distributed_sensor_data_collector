@@ -1,13 +1,13 @@
 import argparse
 import cv2
 
-from src.machine_learning import Detector
+from src.ml_algorithms.ml_base import DetectorBase
 from src.radar import RadarPoint, read_radar_points, get_detection_speeds
 from src.debug.visualize import visualize
 from src.database_connector import add_to_db
 
 
-def process_frame(args: argparse, image_file: str, radar_files: list, detector: Detector, db_conn) -> int:  
+def process_frame(args: argparse, image_file: str, radar_files: list, detector: DetectorBase, db_conn) -> int:  
     image = cv2.imread(image_file)
 
     height = image.shape[0]
