@@ -34,6 +34,6 @@ def process_frame(args: argparse, image_file: str, radar_files: list, detector: 
 
     else: # TODO: Add support for writing multiple radar files to the DB
         if True in (scores > threshold):
-            add_to_db(db_conn, image_file, radar_files[0], labels, bboxes, threshold, velocities, scores)
+            add_to_db(db_conn, detector, image_file, radar_files, labels, bboxes, threshold, velocities, scores)
 
     return 0
