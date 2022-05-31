@@ -1,3 +1,5 @@
 *.pyc
 .idea
 .directory
+
+tem_db.sql.bak

@@ -14,7 +14,7 @@ DB_PORT = '5432'
 from utils.visualize import visualize
 
 class DBObject:
-    def __init__(self, row):
+    def __init__(self, row, image_file, radar_files):
         self.obj_class = row[0]
         self.frame_id = row[1]
         self.speed = row[2]
@@ -23,8 +23,8 @@ class DBObject:
         self.self_speed = row[5]
         self.gps = row[6]
         self.timestamp = row[7]
-        self.image_file = row[8]
-        self.radar_file = row[9]
+        self.image_file = image_file
+        self.radar_file = radar_files
 
 
 def arg_parser() -> argparse:
@@ -59,14 +59,12 @@ def main(args: argparse) -> int:
     if args.where:
         where_str = f'WHERE {args.where}'
     elif args.frame:
-        where_str = f'WHERE "frame_id" = {args.frame}'
+        where_str = f'WHERE "FrameID" = {args.frame}'
 
-    query = f'''SELECT "Class", "frame_id", "Speed", "Distance", "Bounding_Box", "Self_Speed", "GPS_Coords", "Timestamp", "image_file", "radar_point_cloud" 
-                FROM "Detected_Objects"
+    query = f'''SELECT "Class", "FrameID", "Speed", "Distance", "BoundingBox", "SelfSpeed", "GpsCoords", "Timestamp"
+                FROM "DetectedObject"
                 INNER JOIN "Frame"
-                ON "Detected_Objects"."frame_id" = "Frame"."Id"
-                INNER JOIN "Sensor_Data"
-                ON "Frame"."Sensor_Data" = "Sensor_Data"."Id"
+                ON "DetectedObject"."FrameID" = "Frame"."ID"
                 {where_str}
                 LIMIT {args.limit};
             '''
@@ -74,11 +72,29 @@ def main(args: argparse) -> int:
 
     rows = cur.fetchall()
 
+
     print()
     print('Query returned:')
     db_objects = []
     for row in rows:
-        db_object = DBObject(row)
+        img_file = None
+        radar_files = []
+
+        raw_query = f''' SELECT "SensorType", "DataFile"
+                         FROM "SensorData"
+                         WHERE "FrameID" = {row[1]};
+                     '''
+        cur.execute(raw_query)
+        raw_rows = cur.fetchall()
+        for raw in raw_rows:
+            if raw[0] == "image":
+                img_file = raw[1]
+            elif raw[0] == "radar":
+                radar_files.append(raw[1])
+            else:
+                print("Error! Unknown sensor type in database")
+
+        db_object = DBObject(row, img_file, radar_files)
         print(f'Object class: {db_object.obj_class}')
         print(f'Frame ID: {db_object.frame_id}')
         print(f'Object speed: {db_object.speed}')

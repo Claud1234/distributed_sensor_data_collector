@@ -93,7 +93,7 @@ def visualize(db_objects):
     global first_frame
 
     img_file = db_objects[0].image_file
-    radar_file = db_objects[0].radar_file
+    radar_files = db_objects[0].radar_file
 
     frame_id = db_objects[0].frame_id
     self_speed = db_objects[0].self_speed
@@ -102,6 +102,10 @@ def visualize(db_objects):
     timestamp = db_objects[0].timestamp / 1000000000
     time_str = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
 
+    print(f"Image file: {img_file}")
+    print(f"Radar files:")
+    for radar_file in radar_files:
+        print(f"\t{radar_file}")
 
     boxes = []
     scores = []
@@ -126,12 +130,15 @@ def visualize(db_objects):
     # Draw model detections
     image = visualize_model_output(image, boxes, scores, labels, velocities, frame_metadata)
 
-    radar_points = read_radar_points(radar_file)
+    radar_colors = [(255, 0, 255), (255, 255, 0)]
 
-    # Draw radar points
-    for radar_point in radar_points:
-        image = cv2.circle(image, radar_point.screen_coords,
-                           radius=7, color=(255, 0, 255), thickness=-1)
+    for i, radar_data in enumerate(radar_files):
+        radar_points = read_radar_points(radar_data)
+
+        # Draw radar points
+        for radar_point in radar_points:
+            image = cv2.circle(image, radar_point.screen_coords,
+                            radius=7, color=radar_colors[i], thickness=-1)
 
     show_image(image, 'preview', 1280, 720)
 
