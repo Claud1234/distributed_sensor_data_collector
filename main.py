@@ -10,9 +10,11 @@ import psycopg2
 
 from src.process_frame import process_frame
 from src.ml_algorithms.mobilenet2_640 import Mobilenet_640_detector
+from src.ml_algorithms.yolo_escooter import YOLOeScooterDetect
 
 ML_MODEL_DICT = {
-    'mobilenetv2_640': Mobilenet_640_detector
+    'mobilenetv2_640': Mobilenet_640_detector,
+    'YOLOeScooterDetect': YOLOeScooterDetect
 }
 
 IMAGE_EXT = '.jpg'
@@ -80,7 +82,7 @@ def main(args: argparse) -> int:
 
     # Database
     db_conn = None
-    if not args.preview:
+    if not args.preview and not args.video:
         db_conn = psycopg2.connect(database=DB,
                                    user=DB_USER,
                                    password=DB_PASS,

@@ -18,10 +18,20 @@ def process_frame(args: argparse, image_file: str, radar_files: list, detector: 
 
     bboxes = []
     for box in boxes:
-        bbox = (int(box[1] * width),
-                int(box[0] * height),
-                int(box[3] * width),
-                int(box[2] * height))
+        # bbox = (int(box[1] * width),
+        #         int(box[0] * height),
+        #         int(box[3] * width),
+        #         int(box[2] * height))
+        [x1, y1, w1, h1] = box
+        [x2, y2, w2, h2] = [x1-w1, y1, 3*w1, h1+h1//4]
+
+        if x2<0: x2=0
+        if y2<0: y2=0
+
+        bbox = (int(x2),
+                int(y2),
+                int(x2 + w2),
+                int(y2 + h2))
 
         bboxes.append(bbox)
 
