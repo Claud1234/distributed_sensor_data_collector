@@ -76,7 +76,7 @@ def visualize_model_output(frame: np.array, boxes: np.array, scores: np.array,
     return frame
 
 
-def visualize(image, labels, scores, boxes, threshold, radar_points, velocities):
+def visualize(image, labels, scores, boxes, threshold, radar_points, velocities, output_video):
     global first_frame
 
     radar_colors = [(255, 0, 255), (255, 255, 0)]
@@ -88,8 +88,10 @@ def visualize(image, labels, scores, boxes, threshold, radar_points, velocities)
     for radar_point in radar_points:
         image = cv2.circle(image, radar_point.screen_coords,
                         radius=7, color=radar_colors[radar_point.radar_id], thickness=-1)
-
-    show_image(image, 'preview', 1280, 720)
+    if output_video:
+        output_video.write(image)
+    else:
+        show_image(image, 'preview', 1280, 720)
 
     first_frame = False
 

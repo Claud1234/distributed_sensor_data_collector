@@ -34,7 +34,8 @@ def arg_parser() -> argparse:
     parser.add_argument('-t', '--thresh', default=0.45, help='Model detection threshold')
     parser.add_argument('-p', '--preview', action='store_true', help='Visualizes all processed frames before committing '
                                                                      'the data into the database. Useful for debugging.')
-    parser.add_argument('-s', '--step', action='store_true', help='Allows stepping through the frames with space while visualizing')
+    parser.add_argument('-s', '--step', action='store_true', help='Allows stepping through the frames with space while visualizing (only used when --preview option is specified')
+    parser.add_argument('-v', '--video', help='Save output as video (cannot be used together with the --preview option)')
 
     args = parser.parse_args()
     return args
@@ -63,6 +64,11 @@ def main(args: argparse) -> int:
         print_models()
         return 0
 
+    # Output video flag
+    if args.preview and args.video:
+        print("--preview and --video flags cannot be used together!")
+        return 1
+
     # Machine learning
     detector = ML_MODEL_DICT[args.model](args.thresh)
 
@@ -89,6 +95,16 @@ def main(args: argparse) -> int:
 
     file_count = len(jpg_files)
 
+    output_video = None
+    if args.video:
+        print(f"Saving output to {args.video}")
+        
+        # Read first image to get the size of the images
+        image = cv2.imread(jpg_files[0])
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        output_video = cv2.VideoWriter(args.video, fourcc, 10, (image.shape[1], image.shape[0]))
+
     for i, jpg in enumerate(jpg_files):
         no_ext = os.path.splitext(jpg)
         base_name = os.path.basename(no_ext[0])
@@ -100,7 +116,7 @@ def main(args: argparse) -> int:
         percentage = round(i * 100 / file_count, 1)
         print(f'Processing: {base_name} ({percentage}%)')
 
-        process_frame(args, jpg, radar_files, detector, db_conn)
+        process_frame(args, jpg, radar_files, detector, db_conn, output_video)
 
         if args.preview:
             # ESC will close the program. Also without this line the 'X' button does not work.
@@ -119,7 +135,11 @@ def main(args: argparse) -> int:
 
     if args.preview:
         cv2.destroyAllWindows()
-    else:
+
+    if args.video:
+        output_video.release()
+
+    if not args.preview and not args.video:
         db_conn.close()
 
     return 0

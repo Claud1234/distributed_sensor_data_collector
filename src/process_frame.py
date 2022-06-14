@@ -1,5 +1,6 @@
 import argparse
 import cv2
+import numpy as np
 
 from src.ml_algorithms.ml_base import DetectorBase
 from src.radar import RadarPoint, read_radar_points, get_detection_speeds
@@ -7,7 +8,7 @@ from src.debug.visualize import visualize
 from src.database_connector import add_to_db
 
 
-def process_frame(args: argparse, image_file: str, radar_files: list, detector: DetectorBase, db_conn) -> int:  
+def process_frame(args: argparse, image_file: str, radar_files: list, detector: DetectorBase, db_conn, output_video: np.ndarray) -> int:  
     image = cv2.imread(image_file)
 
     height = image.shape[0]
@@ -29,10 +30,10 @@ def process_frame(args: argparse, image_file: str, radar_files: list, detector: 
     velocities = get_detection_speeds(bboxes, radar_points)
     threshold = detector.get_threshold()
 
-    if args.preview:
-        visualize(image, labels, scores, bboxes, threshold, radar_points, velocities)
+    if args.preview or args.video:
+        visualize(image, labels, scores, bboxes, threshold, radar_points, velocities, output_video)
 
-    else: # TODO: Add support for writing multiple radar files to the DB
+    else:
         if True in (scores > threshold):
             add_to_db(db_conn, detector, image_file, radar_files, labels, bboxes, threshold, velocities, scores)
 
