@@ -1,8 +1,8 @@
 #!/bin/bash
 
-FILE=sql/tem_db.sql
+FILE=sql/database.sql
 if test -f "$FILE"; then
     mv "$FILE" "${FILE}.bak"
 fi
 
-docker-compose run postgres pg_dump -h localhost -U db_user -d transport_ecosystem_management_db -f /tmp/sql/tem_db.sql
+docker-compose run mysql bash -c "mysqldump -h mysql -P 3306 -u db_user -ptransport123 --no-data --no-tablespaces transport_ecosystem_management_db > /tmp/sql/database.sql"

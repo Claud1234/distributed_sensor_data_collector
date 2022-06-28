@@ -1,24 +1,21 @@
 version: '3.8'
 services:
-  postgres:
-    image: postgres:14-alpine
-    restart: 'no'
-    environment:
-      - POSTGRES_USER=db_user
-      - POSTGRES_PASSWORD=transport123
-      - POSTGRES_DB=transport_ecosystem_management_db
+  mysql:
+    image: mysql:8
     ports:
-      - '5432:5432'
-    volumes: 
-      - /opt/pg_data:/var/lib/postgresql/data
+      - 3306:3306
+    volumes:
+      - ~/apps/mysql:/var/lib/mysql
       - ./sql:/tmp/sql
-
-    network_mode: "host"
+      
+    environment:
+      - MYSQL_ROOT_PASSWORD=transport123
+      - MYSQL_PASSWORD=transport123
+      - MYSQL_USER=db_user
+      - MYSQL_DATABASE=transport_ecosystem_management_db
 
   adminer:
     image: adminer
     restart: 'no'
     ports:
       - 8080:8080
-
-    network_mode: "host"
