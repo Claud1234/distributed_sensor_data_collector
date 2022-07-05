@@ -1,5 +1,5 @@
 {
-    "ml": {
+    "ml_model": {
         "table_name": "ml_model",
         "fields": [
             {
@@ -35,7 +35,7 @@
         ],
         "has_json": true
     },
-    "dm": {
+    "detection_model": {
         "table_name": "detection_model",
         "fields": [
             {
@@ -84,7 +84,7 @@
         "has_json": true
     },
     "sensor": {
-        "table_name": "sensor_type",
+        "table_name": "sensor",
         "fields": [
             {
                 "name": "name",
