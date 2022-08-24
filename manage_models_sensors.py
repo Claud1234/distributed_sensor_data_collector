@@ -173,7 +173,7 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
                            the data from the table
 
     Returns:
-        int: 0 when no error occurred, one otherwise
+        int: 0 when no error occurred, 1 otherwise
     """
 
     # Get table parameters fromt the JSON structure
@@ -256,12 +256,6 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
 def remove_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
                  cur: mysql.connector.cursor.MySQLCursor):
     print("Remove not implemented!")
-
-# TODO: Implement
-def modify_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
-                 cur: mysql.connector.cursor.MySQLCursor):
-    print("Modify not implemented")
-
 
 def list_entries(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
                  cur: mysql.connector.cursor.MySQLCursor, print_json: bool, id=-1) -> int:
@@ -371,8 +365,6 @@ def arg_parser() -> argparse.ArgumentParser:
                      help='Add ML object to database')
     cmd.add_argument('-r', '--remove', action='store_true',
                      help='Remove ML object to database')
-    cmd.add_argument('-u', '--update', action='store_true',
-                     help='Remove ML object to database')
     cmd.add_argument('-l', '--list', action='store_true',
                      help='Lists the entries in a table')
 
@@ -402,7 +394,7 @@ def main(parser: argparse.ArgumentParser) -> int:
 
     args = parser.parse_args()
 
-    if not args.insert and not args.remove and not args.update and not args.list:
+    if not args.insert and not args.remove and not args.list:
         print("ERROR: No command specified (what do you want to do?)!", file=stderr)
         print()
         parser.print_help()
@@ -462,9 +454,6 @@ def main(parser: argparse.ArgumentParser) -> int:
 
     elif args.remove:
         retval = remove_entry(dataBase, table_struct, tab_key, db_cursor)
-
-    elif args.update:
-        retval = modify_entry(dataBase, table_struct, tab_key, db_cursor)
 
     elif args.list:
         retval = list_entries(dataBase, table_struct, tab_key,

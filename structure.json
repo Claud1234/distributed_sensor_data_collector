@@ -1,0 +1,117 @@
+{
+    "ml_model": {
+        "table_name": "ml_model",
+        "fields": [
+            {
+                "name": "name",
+                "size": 64,
+                "required": true,
+                "fk": false
+            },
+            {
+                "name": "comment",
+                "size": 256,
+                "required": false,
+                "fk": false
+            }
+        ],
+        "has_json": true
+    },
+    "dataset": {
+        "table_name": "dataset",
+        "fields": [
+            {
+                "name": "name",
+                "size": 64,
+                "required": true,
+                "fk": false
+            },
+            {
+                "name": "comment",
+                "size": 256,
+                "required": false,
+                "fk": false
+            }
+        ],
+        "has_json": true
+    },
+    "detection_model": {
+        "table_name": "detection_model",
+        "fields": [
+            {
+                "name": "name",
+                "size": 64,
+                "required": true,
+                "fk": false
+            },
+            {
+                "name": "ml_model_id",
+                "required": true,
+                "fk": true,
+                "fk_table": "ml_model"
+            },
+            {
+                "name": "dataset_id",
+                "required": true,
+                "fk": true,
+                "fk_table": "dataset"
+            },
+            {
+                "name": "comment",
+                "size": 256,
+                "required": false,
+                "fk": false
+            }
+        ],
+        "has_json": false
+    },
+    "sensor_type": {
+        "table_name": "sensor_type",
+        "fields": [
+            {
+                "name": "type_name",
+                "size": 64,
+                "required": true,
+                "fk": false
+            },
+            {
+                "name": "comment",
+                "size": 256,
+                "required": false,
+                "fk": false
+            }
+        ],
+        "has_json": true
+    },
+    "sensor": {
+        "table_name": "sensor",
+        "fields": [
+            {
+                "name": "name",
+                "size": 64,
+                "required": true,
+                "fk": false
+            },
+            {
+                "name": "sensor_type_id",
+                "size": 256,
+                "required": false,
+                "fk": true,
+                "fk_table": "sensor_type"
+            },
+            {
+                "name": "ros_topic",
+                "size": 256,
+                "required": true,
+                "fk": false
+            },
+            {
+                "name": "comment",
+                "size": 256,
+                "required": false,
+                "fk": false
+            }
+        ],
+        "has_json": true
+    }
+}
