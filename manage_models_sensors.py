@@ -99,7 +99,7 @@ def ask_value(desc: str, required: bool, max_len: int, ask_id=False) -> str:
     return entry
 
 
-def get_foreign_key(dataBase: mysql.connector.connect, fk_table: str, table_struct: dict,
+def get_foreign_key(fk_table: str, table_struct: dict,
                     cur: mysql.connector.cursor.MySQLCursor, print_json: bool) -> int:
     """
     Gets a foreign key from the user
@@ -116,7 +116,7 @@ def get_foreign_key(dataBase: mysql.connector.connect, fk_table: str, table_stru
         int: id of the row in in the foreign key table to be associated with the foreign key
     """
 
-    list_entries(dataBase, table_struct, fk_table, cur, print_json, id=-1)
+    list_entries(table_struct, fk_table, cur, print_json, id=-1)
 
     id = int(ask_value("", True, 16, ask_id=True))
     return id
@@ -158,6 +158,31 @@ def db_insert(database: mysql.connector.connect, tab_name: str, keys: list,
     # ID of the row we inserted
     return cur.lastrowid
 
+def get_entries(cur: mysql.connector.cursor.MySQLCursor,
+                tab_name: str, field: str, id: int) -> list:
+    """
+    Gets the IDs of entries from table 'tab_name' where the field with name 'field' == 'id'
+
+    Args:
+        cur (mysql.connector.cursor.MySQLCursor): Database cursor object
+        tab_name (str): Name of the table to search the entries in
+        field (str): Field that should contain the id 'id'
+        id (int): ID to search in 'field'
+
+    Returns:
+        list: List of the IDs of elements in table 'tab_name' where 
+        field with name 'field' == 'id'
+    """
+
+    # Build an SQL query
+    query = f"SELECT id FROM {tab_name} WHERE {field} = {id}"
+    
+    # Execute query
+    cur.execute(query)
+
+    # Fetch the results
+    ret = [item[0] for item in cur.fetchall()]
+    return ret
 
 def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
               cur: mysql.connector.cursor.MySQLCursor, print_json: bool) -> int:
@@ -203,8 +228,7 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
     for field in tab_fields:
         field_name = field.get('name', None)
         if field_name is None:
-            print(
-                f"ERROR: No name for a field in table{tab_name} in {DB_STRUCTURE_JSON}!")
+            print(f"ERROR: No name for a field in table{tab_name} in {DB_STRUCTURE_JSON}!")
             return 1
 
 
@@ -218,14 +242,12 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
 
         field_size = field.get('size', None)
         if field_size is None and not field_fk:
-            print(
-                f"Warning field size for field {field_name} not specified! Defaulting to 64")
+            print(f"Warning field size for field {field_name} not specified! Defaulting to 64")
             field_size = 64
             
         # Field is a foreign key
         if field_fk:
-            val = get_foreign_key(dataBase, field_fk_table,
-                                  table_struct, cur, print_json)
+            val = get_foreign_key(field_fk_table, table_struct, cur, print_json)
 
             if val is not None:
                 keys.append(field_name)
@@ -248,26 +270,100 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
     id = db_insert(dataBase, tab_name, keys, values, cur)
 
     #  Read the inserted row back from the DB
-    list_entries(dataBase, table_struct, tab_key, cur, print_json, id)
+    list_entries(table_struct, tab_key, cur, print_json, id)
 
     return 0
 
-# TODO: Implement
-def remove_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
-                 cur: mysql.connector.cursor.MySQLCursor):
-    print("Remove not implemented!")
+def delete_entry(database: mysql.connector.connect, cur: mysql.connector.cursor.MySQLCursor, 
+                 tab_name: str, ids: list) -> None:
 
-def list_entries(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
-                 cur: mysql.connector.cursor.MySQLCursor, print_json: bool, id=-1) -> int:
+    # Build an SQL query
+    query = f"DELETE FROM {tab_name} WHERE"
+
+    for i, id in enumerate(ids):
+        if i == 0:
+            or_str = ''
+        else:
+            or_str = 'OR '
+            
+        query += f" {or_str}id = {id}"
+
+    # Execute query
+    cur.execute(query)
+
+    database.commit()
+
+def remove_entry(database: mysql.connector.connect, table_struct: dict, tab_key: str,
+                 cur: mysql.connector.cursor.MySQLCursor, print_json: bool):
+        
+    list_entries(table_struct, tab_key, cur, print_json)
+    id = int(ask_value("Please enter the ID of the field to delete",
+                True, 16, True))
+
+    # If this entry is used for a foreign key in another table,
+    # we need to delete that also 
+    table = table_struct.get(tab_key, None)
+    if table is None:
+        print(f"ERROR: Cannot find table {tab_key} in {DB_STRUCTURE_JSON}!")
+        return 1
+
+    tab_name = table.get('table_name', None)
+    
+    check_fk = True
+    if tab_name == 'ml_model':
+        fk_tab = 'detection_model'
+        fk_tab_field = 'ml_model_id'
+
+    elif tab_name == 'dataset':
+        fk_tab = 'detection_model'
+        fk_tab_field = 'dataset_id'
+
+    elif tab_name == 'sensor_type':
+        fk_tab = 'sensor'
+        fk_tab_field = 'sensor_type_id'
+
+    else:
+        check_fk = False
+
+    if check_fk:
+        fk_entries = get_entries(cur, fk_tab, fk_tab_field, id)
+        
+        if len(fk_entries) > 0:
+            print("If you delete this entry, also the following entries "
+                    "reffering to this will be deleted:")
+            print(f"From table '{fk_tab}'")
+            for entry in fk_entries:
+                print(fk_entries, entry)
+                list_entries(table_struct, fk_tab, cur, print_json, entry)
+
+    ans  = ''
+    while ans != 'y' and ans != 'n':
+        ans = input("Confirm delete (Y/N): ")
+        ans = ans.lower()
+
+    if ans == 'y':
+        print('Deleting')
+        
+        if len(fk_entries) > 0:
+            delete_entry(database, cur, fk_tab, fk_entries)
+
+        delete_entry(database, cur, tab_name, [id])
+
+
+    elif ans == 'n':
+        print("Delete cancelled by user")
+        exit(0)
+
+def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.MySQLCursor, 
+                 print_json: bool, id=-1) -> int:
     """
     Reads all table contents and displays on screen. If id == -1,
     it will read the contents of all tables. If id is non-negative,
     it will read the contents of the row with id number defined by the id parameter
 
     Args:
-        dataBase (mysql.connector.connect): Database connection object
         table_struct (dict): Dictionary object representing the table structure
-        tab_key (str): Key that points to the current table int the table structure
+        tab_key (str): Key that points to the current table in the table structure
         cur (mysql.connector.cursor.MySQLCursor): Database cursor object
         print_json (bool): If True, also the JSON data is printed when reading back
                            the data from the table
@@ -400,7 +496,9 @@ def main(parser: argparse.ArgumentParser) -> int:
         parser.print_help()
         return 1
 
-    if not args.machine_learning and not args.dataset and not args.detection_model:
+    if not args.machine_learning and not args.dataset and not args.detection_model \
+        and not args.sensor and not args.sensor_type:
+        
         print("ERROR: No object type specified (what table do you want to modify?)!", file=stderr)
         print()
         parser.print_help()
@@ -442,7 +540,6 @@ def main(parser: argparse.ArgumentParser) -> int:
         passwd=DB_PASS,
         port=DB_PORT,
         database=DB
-
     )
 
     db_cursor = dataBase.cursor()
@@ -453,10 +550,11 @@ def main(parser: argparse.ArgumentParser) -> int:
                            db_cursor, args.print_json)
 
     elif args.remove:
-        retval = remove_entry(dataBase, table_struct, tab_key, db_cursor)
+        retval = remove_entry(dataBase, table_struct, tab_key, 
+                              db_cursor, args.print_json)
 
     elif args.list:
-        retval = list_entries(dataBase, table_struct, tab_key,
+        retval = list_entries(table_struct, tab_key,
                               db_cursor, args.print_json)
 
     else:
