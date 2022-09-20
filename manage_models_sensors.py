@@ -1,7 +1,6 @@
 #!/bin/env python3
 
 import argparse
-from dataclasses import fields
 from sys import stderr
 import json
 from enum import Enum

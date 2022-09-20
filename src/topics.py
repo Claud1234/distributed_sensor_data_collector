@@ -1,6 +1,31 @@
 from itertools import chain
 from dataclasses import dataclass
 
+@dataclass
+class LastFrame:
+    """
+    Object for storing storing received data.
+    """
+    frame_counter: 0
+    timestamp: None
+    data: dict()
+
+    def has_enough_data(self, topics: dict) -> bool:
+        """
+        Checks if we have collected data from all topics that
+        we are monitoring.
+
+        Args:
+            topics (dict): Dictionary object containing valid topics
+
+        Returns:
+            bool: True if enough data has been collected. False otherwise
+        """
+        if len(self.data.keys()) != len(topics):
+            return False
+
+        return True
+
 
 @dataclass
 class TopicData:
@@ -24,6 +49,7 @@ class Topics:
     lidar_pc: list
     gps_fix: list
     transforms: list
+    other: list
 
     def as_dict(self) -> dict():
         return {
@@ -31,7 +57,8 @@ class Topics:
                 'radar_pc': self.radar_pc,
                 'lidar_pc': self.lidar_pc,
                 'gps_fix': self.gps_fix,
-                'transforms': self.transforms
+                'transforms': self.transforms,
+                'other': self.other
                 }
 
     def get_all_topics(self) -> list:
@@ -45,7 +72,8 @@ class Topics:
                           self.radar_pc,
                           self.lidar_pc,
                           self.gps_fix,
-                          self.transforms))
+                          self.transforms,
+                          self.other))
 
     def get_topic_names(self, topic_list: list=None) -> list:
         """
@@ -116,41 +144,3 @@ class Topics:
 
         return topic_list[0]
 
-@dataclass
-class LastFrame:
-    """
-    Object for storing storing received data.
-    """
-    frame_counter: 0
-    timestamp: None
-    images: dict()
-    radar_pc: dict()
-    lidar_pc: dict()
-    gps_fix: None
-
-    def has_enough_data(self, topics: Topics) -> bool:
-        """
-        Checks if we have collected data from all topics that
-        we are monitoring.
-
-        Args:
-            topics (Topics): Topics object containing valid topics
-
-        Returns:
-            bool: True if enough data has been collected. False otherwise
-        """
-
-        if len(topics.images) > 0 and len(self.images) != len(topics.images):
-            return False
-
-        if len(topics.radar_pc) > 0 and len(self.radar_pc) != len(topics.radar_pc):
-            return False
-
-        if len(topics.lidar_pc) > 0 and len(self.lidar_pc) != len(topics.lidar_pc):
-            return False
-
-        if len(topics.gps_fix) > 0 and self.gps_fix is None:
-            return False
-
-
-        return True

@@ -1,30 +1,26 @@
-from contextlib import redirect_stdout
+import argparse
+
+import progressbar
 import rosbag
 import rospy
-import os
+import itertools
 
-from collections import namedtuple
-from dataclasses import dataclass
-import progressbar
-from pathlib import Path
-import shutil
-
-from src.topics import Topics, TopicData, LastFrame
+from src.topics import LastFrame
 from src.frame import process_frame
-       
+
 
 class RosbagParser():
     """
     Class for parsing rosbags
     """
 
-    def __init__(self, args: str, topics: Topics=None) -> None:
+    def __init__(self, args: argparse.Namespace, output_folder: str = '', valid_topics: dict = None) -> None:
         """
         Constructor
 
         Args:
-            bag (str): Program's arguments
-            topics (Topics, optional): Object containing all topics to read. 
+            bag (argparse.Namespace): Program's arguments
+            valid_topics (dict, optional): Object containing all topics to read. 
                                        If None, the topics are guessed automatically 
                                        at object's creation time. Defaults to None.
         """
@@ -32,16 +28,13 @@ class RosbagParser():
         self.args = args
 
         self.bag = rosbag.Bag(args.rosbag)
+        self.topics = valid_topics
+        self.output_folder = output_folder
 
-        if topics is None:
-            self.topics = self._guess_topics()
-        else:
-            self.topics = topics
-
-        self.output_folder = self._get_output_folder()
-
-        self.last_frame_msg = LastFrame(0, 0, dict(), dict(), dict(), dict())
+        self.last_frame_msg = LastFrame(0, 0, dict())
         self.freq = int((1/args.fps) * 1e9)
+
+        self.bag_topics = []
 
         print(f"Saving frames after every {self.freq} ns ({self.freq / 1e9} s, {args.fps} FPS)")
 
@@ -51,122 +44,118 @@ class RosbagParser():
         """
         self.bag.close()
 
-    def _topic_to_obj(self, name: str, params: namedtuple) -> TopicData:
+    def get_valid_topics(self) -> dict:
         """
-        Converts rosbag formatted topic info to TopicData object
-
-        Args:
-            name (str): Topic name
-            params (namedtuple): Rosbag's TopicTuple object
+        Returns dictionary containing valid topics sorted by
+        sensor type
 
         Returns:
-            TopicData: Topic information as TopicData object
+            dict: Dictionary containing topics sorted by
+                  sensor type
         """
-        obj = TopicData(name,
-                        params.msg_type,
-                        params.message_count,
-                        params.connections,
-                        params.frequency)
+        return self.topics
 
-        return obj
-
-    def _guess_topics(self) -> Topics:
+    def get_valid_topic_list(self) -> list:
         """
-        Tries to guess in which groups the topics in the rosbag belongs to
+        Returns a list of all valid topics
 
         Returns:
-            Topics: Topics object containing all topics filtered in to groups
+            dict: List of all valid topics
+        """
+        return list(itertools.chain.from_iterable(list(self.topics.values())))
+    
+    def get_topics(self) -> dict:
+        """
+        Retuns topics in rosbag
+
+        Returns:
+            dict: Dictionary containing the rosbag topics
+        """
+        return self.bag_topics
+
+    def print_topics(self) -> None:
+        """
+        Prints rosbag topics on screen
+        """
+        
+        # Print results
+        print("\nTOPICS:")
+        print("=" * 10)
+
+        for topic in self.bag_topics:
+            print(topic)
+
+        print()
+
+    def read_topics(self) -> None:
+
+        """
+        Reads all topics from a rosbag file
         """
 
-        bag_topics = self.bag.get_type_and_topic_info().topics
-
-        image_topics = []
-        radar_pc = []
-        lidar_pc = []
-        gps_fix = []
-        transforms = []
-
-        for name, params in bag_topics.items():
-            obj = self._topic_to_obj(name, params)
-
-            if obj.type == 'sensor_msgs/CompressedImage':
-                image_topics.append(obj)
-
-            elif obj.type == 'sensor_msgs/NavSatFix':
-                gps_fix.append(obj)
-
-            elif obj.type == 'tf2_msgs/TFMessage':
-                transforms.append(obj)
-
-            elif obj.type == 'sensor_msgs/PointCloud2':
-                if 'radar' in obj.name:
-                    radar_pc.append(obj)
-
-                elif 'lidar' in obj.name:
-                    lidar_pc.append(obj)
-
-        return Topics(image_topics, 
-                      radar_pc, 
-                      lidar_pc, 
-                      gps_fix, 
-                      transforms)
-
-    def _get_output_folder(self) -> str:
-        output_folder = ''
-
-        bag_name = Path(self.args.rosbag).stem
-        output_folder = os.path.join(self.args.output, bag_name)
-        folder_exists = os.path.exists(output_folder)
-
-        if folder_exists:
-            if self.args.overwrite:
-                shutil.rmtree(output_folder)
-                folder_exists = False
-            else:
-                print('Error! Folder already exists!')
-                exit(1)
-
-        if not folder_exists:
-            os.makedirs(output_folder)
-            print("Output directory created!")
-
-        return output_folder
-
-    def parse_rosbag(self):
-        if self.args.progress:
-            msg_count = self.bag.get_message_count()
-            bar = progressbar.ProgressBar(max_value=msg_count, prefix='Processing: ', redirect_stdout = True)
-            
         i = 0
 
+        # Progressbar
+        if self.args.progress:
+            msg_count = self.bag.get_message_count()
+            bar = progressbar.ProgressBar(
+                max_value=msg_count, prefix='Analyzing rosbag: ', redirect_stdout=True)
+
+        # Read topics
+        for topic, _, _ in self.bag.read_messages():
+            if topic not in self.bag_topics:
+                self.bag_topics.append(topic)
+
+            # Update progressbar
+            if self.args.progress:
+                i += 1
+                bar.update(i)
+
+        if self.args.progress:
+            bar.finish()
+
+    def parse_rosbag(self) -> None:
+        """
+        Parses a rosbag file
+        """
+
+        i = 0
+
+        # Set up progressbar
+        if self.args.progress:
+            msg_count = self.bag.get_message_count()
+            bar = progressbar.ProgressBar(
+                max_value=msg_count, prefix='Processing: ', redirect_stdout=True)
+
+        # Read rosbag topics
         for topic, msg, t in self.bag.read_messages():
-            if self.topics.is_topic_in_group(topic, 'images'):
-                self.last_frame_msg.images[topic] = msg.data
-            
-            elif self.topics.is_topic_in_group(topic, 'radar_pc'):
-                self.last_frame_msg.radar_pc[topic] = msg
 
-            elif self.topics.is_topic_in_group(topic, 'lidar_pc'):
-                self.last_frame_msg.lidar_pc[topic] = msg
+            # Sensor is a camera
+            if topic in self.topics.get('camera', []):
+                self.last_frame_msg.data[topic] = msg.data
 
-            elif self.topics.is_topic_in_group(topic, 'gps_fix'):
-                self.last_frame_msg.gps_fix = msg
+            # Sensor is a radar
+            elif topic in self.topics.get('radar', []):
+                self.last_frame_msg.data[topic] = msg
 
-            # elif self.topics.is_topic_in_group(topic, 'transforms'):
-            #     print(msg)#self.last_frame_msg. = msg.data
+            # TODO: Add other sensor types
 
             time_ns = rospy.rostime.Time.to_nsec(t)
 
             if self.args.progress:
                 bar.update(i)
 
+            # For syncing to framerate
             if time_ns >= self.last_frame_msg.timestamp + self.freq:
 
                 if self.last_frame_msg.timestamp > 0:
                     self.last_frame_msg.frame_counter += 1
 
-                    if self.last_frame_msg.has_enough_data(self.topics):
-                        process_frame(self.last_frame_msg, self.output_folder, self.args.radar_2d)
+                    # If we have collected enough data for the frame
+                    if self.last_frame_msg.has_enough_data(self.get_valid_topic_list()):
+                        # Save the frame data
+                        process_frame(self.last_frame_msg, self.output_folder, 
+                                      self.args.radar_2d, self.get_valid_topics())
 
                 self.last_frame_msg.timestamp = time_ns
 
