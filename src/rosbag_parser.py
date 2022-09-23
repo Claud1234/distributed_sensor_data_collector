@@ -1,3 +1,4 @@
+import os
 import argparse
 
 import progressbar
@@ -7,6 +8,7 @@ import itertools
 
 from src.topics import LastFrame
 from src.frame import process_frame
+from src.db import DBHandler
 
 
 class RosbagParser():
@@ -14,7 +16,9 @@ class RosbagParser():
     Class for parsing rosbags
     """
 
-    def __init__(self, args: argparse.Namespace, output_folder: str = '', valid_topics: dict = None) -> None:
+    def __init__(self, args: argparse.Namespace, db: DBHandler = None, 
+                 save_path: str = '', folder: str = '', 
+                 valid_topics: dict = None) -> None:
         """
         Constructor
 
@@ -29,7 +33,13 @@ class RosbagParser():
 
         self.bag = rosbag.Bag(args.rosbag)
         self.topics = valid_topics
-        self.output_folder = output_folder
+        self.save_path = save_path
+        self.folder = folder
+
+        self.db = db
+
+        # Timestamp for the file
+        self.timestamp = os.path.getmtime(args.rosbag)
 
         self.last_frame_msg = LastFrame(0, 0, dict())
         self.freq = int((1/args.fps) * 1e9)
@@ -138,8 +148,6 @@ class RosbagParser():
             elif topic in self.topics.get('radar', []):
                 self.last_frame_msg.data[topic] = msg
 
-            # TODO: Add other sensor types
-
             time_ns = rospy.rostime.Time.to_nsec(t)
 
             if self.args.progress:
@@ -154,8 +162,10 @@ class RosbagParser():
                     # If we have collected enough data for the frame
                     if self.last_frame_msg.has_enough_data(self.get_valid_topic_list()):
                         # Save the frame data
-                        process_frame(self.last_frame_msg, self.output_folder, 
-                                      self.args.radar_2d, self.get_valid_topics())
+                        frame_sensors = process_frame(self.last_frame_msg, self.save_path, self.folder,
+                                            self.args.radar_2d, self.get_valid_topics())
+                        if self.db:
+                            self.db.save_frame(time_ns / 1e9, frame_sensors)
 
                 self.last_frame_msg.timestamp = time_ns
 

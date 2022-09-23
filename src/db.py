@@ -1,3 +1,5 @@
+import datetime
+from time import time
 import mysql.connector
 
 
@@ -20,6 +22,7 @@ class DBHandler():
         # Data structure containing information
         # about all known sensors
         self.sensors = dict()
+        self.sensors_by_topic = dict()
 
         self._read_sensor_data()
 
@@ -67,6 +70,7 @@ class DBHandler():
                 self.sensors[sensor_type] = []
 
             self.sensors[sensor_type].append(sensor)
+            self.sensors_by_topic[res[5]] = res[0]
 
     def get_sensors(self) -> dict:
         """
@@ -96,3 +100,50 @@ class DBHandler():
                 sensor_topics[k].append(sensor.get('topic', None))
 
         return sensor_topics
+
+    def save_frame(self, timestamp: float, sensor_data: list):
+
+        dt = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Store frame entry
+        sql = "INSERT INTO frame (timestamp) VALUES (%s)"
+        val = (dt,)
+
+        try:
+            self.cursor.execute(sql, val)
+            self.database.commit()
+        except:
+            print("Error inserting frame to database")
+            self.database.rollback()
+
+        frame_id = self.cursor.getlastrowid()
+
+        # Store frame_sensor table entries
+        for sensor in sensor_data:
+            topic = sensor.get('topic', None)
+            if topic is None:
+                print("Warning: sensor without topic detected!")
+                continue
+
+            s_file = sensor.get('file', None)
+            s_data = sensor.get('data', None)
+
+            if s_file is None and s_data is None:
+                print(f"Warning: sensor {topic} has no data or file assigned to it!")
+                continue
+
+            sensor_id = self.sensors_by_topic.get(topic, None)
+            if sensor_id is None:
+                print("Warning: unknown sensor:", topic)
+                continue
+            
+            sql = "INSERT INTO frame_sensor (frame_id, sensor_id, file_name, sensor_data) VALUES (%s, %s, %s, %s)"
+            val = (frame_id, sensor_id, s_file, s_data)
+
+            # try:
+            self.cursor.execute(sql, val)
+            self.database.commit()
+            # except:
+                # print("Error inserting frame_sensor to database")
+                # self.database.rollback()
+

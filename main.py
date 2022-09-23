@@ -52,7 +52,7 @@ def get_output_folder(bag_file: str, output: str, overwrite: bool) -> str:
         os.makedirs(output_folder)
         print("Output directory created!")
 
-    return output_folder
+    return output_folder, bag_name
 
 
 def arg_parser():
@@ -111,10 +111,10 @@ def main(args):
             if len(tmp_topics) > 0:
                 valid_topics[sensor] = tmp_topics
 
-        output_folder = get_output_folder(args.rosbag, args.output, args.overwrite)
+        save_path, folder = get_output_folder(args.rosbag, args.output, args.overwrite)
 
         # Process rosbag
-        bag_parser = RosbagParser(args, output_folder, valid_topics=valid_topics)
+        bag_parser = RosbagParser(args, db, save_path, folder, valid_topics=valid_topics)
         bag_parser.parse_rosbag()
 
 
