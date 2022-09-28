@@ -1,39 +1,39 @@
 #!/bin/env python3
 
 import argparse
-import io
+import json
 import os
 import shutil
 import sys
-from pathlib import Path
 
-from PIL import Image
+from pathlib import Path
 
 from src.db import DBHandler
 from src.rosbag_parser import RosbagParser
 
 DEF_FPS = 10
+DEF_CFG_PATH = './cfg.json'
 
-DB = 'transport_ecosystem_management_db'
-DB_USER = 'db_user'
-DB_PASS = 'transport123'
-DB_HOST = '172.17.0.1'
-# DB_HOST = 'host.docker.internal'
-DB_PORT = 3306
+def read_cfg(cfg_path: str) -> dict:
 
+    items = ['db_user', 'db_pass', 'db_name', 
+             'db_port', 'db_host']
 
-def save_frame(args, last_messages, time_ns):
-    # print(last_messages.values())
-    global output_folder
-    if not None in last_messages.values():
-        im = Image.open(io.BytesIO(last_messages['image']))
+    cfg = dict()
 
-        filename = f"frame_{last_messages['frame_no']}.jpg"
-        filename = os.path.join(output_folder, filename)
-        print(filename)
+    try:
+        with open(cfg_path, 'r') as cfg_file:
+            cfg = json.load(cfg_file)
 
-        im.save(filename)
+            for item in items:
+                if item not in cfg.keys():
+                    print(f"CFG Error! '{item}' not in configuration file!")
+                    exit(1)
+    except Exception as e:
+        print(f"CFG Error! {str(e)}")
+        exit(1)
 
+    return cfg
 
 def get_output_folder(bag_file: str, output: str, overwrite: bool) -> str:
     bag_name = Path(bag_file).stem
@@ -72,6 +72,8 @@ def arg_parser():
                         action='store_true', help='Display progress bar')
     parser.add_argument('-l', '--list', action='store_true',
                         help='Lists topics in the rosbag and exits')
+    parser.add_argument('-c', '--config', default=DEF_CFG_PATH, 
+                        help='Path to configuration file')
 
     args = parser.parse_args()
     return args
@@ -83,6 +85,12 @@ def main(args):
             print("No output folder specified!", file=sys.stderr)
             exit(1)
 
+    # Read config file
+    cfg_path = os.path.abspath(os.path.expanduser(args.config))
+    print(f"Using CFG file: {cfg_path}")
+    
+    cfg = read_cfg(cfg_path)
+
     bag_parser = RosbagParser(args)
     bag_parser.read_topics()
 
@@ -92,7 +100,8 @@ def main(args):
     else:
 
         # Read sensor data from the
-        db = DBHandler(DB, DB_HOST, DB_USER, DB_PASS, DB_PORT)
+        db = DBHandler(cfg)
+        
         db_topics = db.get_sensor_topics()
 
         # Read topics in rosbag

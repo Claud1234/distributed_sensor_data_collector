@@ -4,16 +4,15 @@ import mysql.connector
 
 
 class DBHandler():
-    def __init__(self, db_name: str, db_host: str, db_user: str,
-                 db_passwd: str, db_port: int) -> None:
-
+    def __init__(self, db_cfg: dict) -> None:
+        
         # Initialialize DB connection
         self.database = mysql.connector.connect(
-            host=db_host,
-            user=db_user,
-            passwd=db_passwd,
-            port=db_port,
-            database=db_name
+            host=db_cfg['db_host'],
+            user=db_cfg['db_user'],
+            passwd=db_cfg['db_pass'],
+            port=db_cfg['db_port'],
+            database=db_cfg['db_name']
         )
 
         # DB cursor

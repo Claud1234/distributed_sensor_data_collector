@@ -1,25 +1,42 @@
 #!/bin/env python3
 
 import argparse
-from sys import stderr
 import json
+import sys
+import os
 from enum import Enum
+
 import mysql.connector
 
-DB = 'transport_ecosystem_management_db'
-DB_USER = 'db_user'
-DB_PASS = 'transport123'
-DB_HOST = '172.17.0.1'
-# DB_HOST = 'host.docker.internal'
-DB_PORT = 3306
-
-DB_STRUCTURE_JSON = "structure.json"
-
+DB_STRUCTURE_JSON_PATH = "./structure.json"
+DEF_CFG_PATH = './cfg.json'
 
 class Actions(Enum):
     ADD = 1
     REMOVE = 2
     EDIT = 3
+
+
+def read_cfg(cfg_path: str) -> dict:
+
+    items = ['db_user', 'db_pass', 'db_name',
+             'db_port', 'db_host']
+
+    cfg = dict()
+
+    try:
+        with open(cfg_path, 'r') as cfg_file:
+            cfg = json.load(cfg_file)
+
+            for item in items:
+                if item not in cfg.keys():
+                    print(f"CFG Error! '{item}' not in configuration file!")
+                    exit(1)
+    except Exception as e:
+        print(f"CFG Error! {str(e)}")
+        exit(1)
+
+    return cfg
 
 
 def ask_json() -> str:
@@ -83,7 +100,7 @@ def ask_value(desc: str, required: bool, max_len: int, ask_id=False) -> str:
         if len(entry) > max_len:
             print("ERROR: Entry is too long!")
             entry = None
-            
+
         if ask_id:
             try:
                 int(entry)
@@ -157,6 +174,7 @@ def db_insert(database: mysql.connector.connect, tab_name: str, keys: list,
     # ID of the row we inserted
     return cur.lastrowid
 
+
 def get_entries(cur: mysql.connector.cursor.MySQLCursor,
                 tab_name: str, field: str, id: int) -> list:
     """
@@ -175,13 +193,14 @@ def get_entries(cur: mysql.connector.cursor.MySQLCursor,
 
     # Build an SQL query
     query = f"SELECT id FROM {tab_name} WHERE {field} = {id}"
-    
+
     # Execute query
     cur.execute(query)
 
     # Fetch the results
     ret = [item[0] for item in cur.fetchall()]
     return ret
+
 
 def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
               cur: mysql.connector.cursor.MySQLCursor, print_json: bool) -> int:
@@ -203,7 +222,7 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
     # Get table parameters fromt the JSON structure
     table = table_struct.get(tab_key, None)
     if table is None:
-        print(f"ERROR: Cannot find table {tab_key} in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: Cannot find table {tab_key} in structure file!")
         return 1
 
     # Read table paramters
@@ -216,37 +235,39 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
 
     # Error checking
     if tab_fields is None:
-        print(f"ERROR: No fields entry for table in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: No fields entry for table in strucure file!")
         return 1
 
     if tab_name is None:
-        print(f"ERROR: No name entry for table in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: No name entry for table in strucure file!")
         return 1
 
     # Add fields in table_struct to our query list
     for field in tab_fields:
         field_name = field.get('name', None)
         if field_name is None:
-            print(f"ERROR: No name for a field in table{tab_name} in {DB_STRUCTURE_JSON}!")
+            print(
+                f"ERROR: No name for a field in table{tab_name} in strucure file!")
             return 1
-
 
         field_required = field.get('required', False)
         field_fk = field.get('fk', False)
         field_fk_table = field.get('fk_table', None)
         if field_fk and field_fk_table is None:
-            print(f"ERROR: Field {field_name} in {tab_name} marked as foreign key in {DB_STRUCTURE_JSON}, "
+            print(f"ERROR: Field {field_name} in {tab_name} marked as foreign key in strucure file, "
                   "but no field_fk_table entry found!")
             return 1
 
         field_size = field.get('size', None)
         if field_size is None and not field_fk:
-            print(f"Warning field size for field {field_name} not specified! Defaulting to 64")
+            print(
+                f"Warning field size for field {field_name} not specified! Defaulting to 64")
             field_size = 64
-            
+
         # Field is a foreign key
         if field_fk:
-            val = get_foreign_key(field_fk_table, table_struct, cur, print_json)
+            val = get_foreign_key(
+                field_fk_table, table_struct, cur, print_json)
 
             if val is not None:
                 keys.append(field_name)
@@ -273,7 +294,8 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
 
     return 0
 
-def delete_entry(database: mysql.connector.connect, cur: mysql.connector.cursor.MySQLCursor, 
+
+def delete_entry(database: mysql.connector.connect, cur: mysql.connector.cursor.MySQLCursor,
                  tab_name: str, ids: list) -> None:
 
     # Build an SQL query
@@ -284,7 +306,7 @@ def delete_entry(database: mysql.connector.connect, cur: mysql.connector.cursor.
             or_str = ''
         else:
             or_str = 'OR '
-            
+
         query += f" {or_str}id = {id}"
 
     # Execute query
@@ -292,22 +314,23 @@ def delete_entry(database: mysql.connector.connect, cur: mysql.connector.cursor.
 
     database.commit()
 
+
 def remove_entry(database: mysql.connector.connect, table_struct: dict, tab_key: str,
                  cur: mysql.connector.cursor.MySQLCursor, print_json: bool):
-        
+
     list_entries(table_struct, tab_key, cur, print_json)
     id = int(ask_value("Please enter the ID of the field to delete",
-                True, 16, True))
+                       True, 16, True))
 
     # If this entry is used for a foreign key in another table,
-    # we need to delete that also 
+    # we need to delete that also
     table = table_struct.get(tab_key, None)
     if table is None:
-        print(f"ERROR: Cannot find table {tab_key} in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: Cannot find table {tab_key} in strucure file!")
         return 1
 
     tab_name = table.get('table_name', None)
-    
+
     check_fk = True
     if tab_name == 'ml_model':
         fk_tab = 'detection_model'
@@ -326,34 +349,34 @@ def remove_entry(database: mysql.connector.connect, table_struct: dict, tab_key:
 
     if check_fk:
         fk_entries = get_entries(cur, fk_tab, fk_tab_field, id)
-        
+
         if len(fk_entries) > 0:
             print("If you delete this entry, also the following entries "
-                    "reffering to this will be deleted:")
+                  "reffering to this will be deleted:")
             print(f"From table '{fk_tab}'")
             for entry in fk_entries:
                 print(fk_entries, entry)
                 list_entries(table_struct, fk_tab, cur, print_json, entry)
 
-    ans  = ''
+    ans = ''
     while ans != 'y' and ans != 'n':
         ans = input("Confirm delete (Y/N): ")
         ans = ans.lower()
 
     if ans == 'y':
         print('Deleting')
-        
+
         if len(fk_entries) > 0:
             delete_entry(database, cur, fk_tab, fk_entries)
 
         delete_entry(database, cur, tab_name, [id])
 
-
     elif ans == 'n':
         print("Delete cancelled by user")
         exit(0)
 
-def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.MySQLCursor, 
+
+def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.MySQLCursor,
                  print_json: bool, id=-1) -> int:
     """
     Reads all table contents and displays on screen. If id == -1,
@@ -375,7 +398,7 @@ def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.M
 
     table = table_struct.get(tab_key, None)
     if table is None:
-        print(f"ERROR: Cannot find table {tab_key} in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: Cannot find table {tab_key} in structure file!")
         return 1
 
     # Read table paramters
@@ -387,11 +410,11 @@ def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.M
     keys = ["id"]
 
     if tab_fields is None:
-        print(f"ERROR: No fields entry for table in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: No fields entry for table in structure file!")
         return 1
 
     if tab_name is None:
-        print(f"ERROR: No name entry for table in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: No name entry for table in structure file!")
         return 1
 
     # Find all fields that need to be read from the table
@@ -481,6 +504,12 @@ def arg_parser() -> argparse.ArgumentParser:
                            'to be printed out while listing table contents. '
                            'If this flag is not specified, the JSON parameters '
                            'are ignored while printing.')
+    gen_group.add_argument('-sj', '--structure', default=DB_STRUCTURE_JSON_PATH,
+                           help='Path to databse structure description file'
+                                ' (defaults to ./structure.json)')
+    gen_group.add_argument('-c', '--config', default=DEF_CFG_PATH,
+                           help='Path to configuration file'
+                                ' (defaults to ./cfg.json)')
 
     return parser
 
@@ -490,23 +519,28 @@ def main(parser: argparse.ArgumentParser) -> int:
     args = parser.parse_args()
 
     if not args.insert and not args.remove and not args.list:
-        print("ERROR: No command specified (what do you want to do?)!", file=stderr)
+        print("ERROR: No command specified (what do you want to do?)!", file=sys.stderr)
         print()
         parser.print_help()
         return 1
 
     if not args.machine_learning and not args.dataset and not args.detection_model \
-        and not args.sensor and not args.sensor_type:
-        
-        print("ERROR: No object type specified (what table do you want to modify?)!", file=stderr)
+            and not args.sensor and not args.sensor_type:
+
+        print("ERROR: No object type specified (what table do you want to modify?)!", file=sys.stderr)
         print()
         parser.print_help()
         return 1
 
+    # Read config file
+    cfg_file = os.path.abspath(os.path.expanduser(args.config))
+    db_cfg = read_cfg(cfg_file)
+
     # Read DB structure from JSON file for easier manipulation
+    struct_file = os.path.abspath(os.path.expanduser(args.structure))
     table_struct = None
     try:
-        with open(DB_STRUCTURE_JSON, 'r') as f:
+        with open(struct_file, 'r') as f:
             table_struct = json.load(f)
     except (FileNotFoundError, json.decoder.JSONDecodeError) as e:
         print()
@@ -530,15 +564,15 @@ def main(parser: argparse.ArgumentParser) -> int:
 
     if table_struct is None:
         print()
-        print(f"ERROR: No entry for table in {DB_STRUCTURE_JSON}!")
+        print(f"ERROR: No entry for table in structure file!")
         return 1
 
     dataBase = mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        passwd=DB_PASS,
-        port=DB_PORT,
-        database=DB
+        host=db_cfg['db_host'],
+        user=db_cfg['db_user'],
+        passwd=db_cfg['db_pass'],
+        port=db_cfg['db_port'],
+        database=db_cfg['db_name']
     )
 
     db_cursor = dataBase.cursor()
@@ -549,7 +583,7 @@ def main(parser: argparse.ArgumentParser) -> int:
                            db_cursor, args.print_json)
 
     elif args.remove:
-        retval = remove_entry(dataBase, table_struct, tab_key, 
+        retval = remove_entry(dataBase, table_struct, tab_key,
                               db_cursor, args.print_json)
 
     elif args.list:
