@@ -1,17 +1,15 @@
 #!/bin/env python3
 
-import sys
 import argparse
-import psycopg2
-from dataclasses import dataclass
+import json
+import os
+import sys
 
-DB = 'transport_ecosystem_management_db'
-DB_USER = 'db_user'
-DB_PASS = 'transport123'
-DB_HOST = 'localhost'
-DB_PORT = '5432'
+import mysql.connector
 
 from utils.visualize import visualize
+
+DEF_CFG_PATH = './cfg.json'
 
 class DBObject:
     def __init__(self, row, image_file, radar_files):
@@ -26,6 +24,26 @@ class DBObject:
         self.image_file = image_file
         self.radar_file = radar_files
 
+def read_cfg(cfg_path: str) -> dict:
+
+    items = ['db_user', 'db_pass', 'db_name',
+             'db_port', 'db_host']
+
+    cfg = dict()
+
+    try:
+        with open(cfg_path, 'r') as cfg_file:
+            cfg = json.load(cfg_file)
+
+            for item in items:
+                if item not in cfg.keys():
+                    print(f"CFG Error! '{item}' not in configuration file!")
+                    exit(1)
+    except Exception as e:
+        print(f"CFG Error! {str(e)}")
+        exit(1)
+
+    return cfg
 
 def arg_parser() -> argparse:
 
@@ -34,18 +52,31 @@ def arg_parser() -> argparse:
     group.add_argument('-w', '--where', help='Filter database results')
     group.add_argument('-f', '--frame', help='Search for a frame instead of an object')
     parser.add_argument('-l', '--limit', default=10, help='Number of results to receive')
+    parser.add_argument('-c', '--config', default=DEF_CFG_PATH,
+                           help='Path to configuration file'
+                                ' (defaults to ./cfg.json)')
 
     args = parser.parse_args()
     return args
 
 def main(args: argparse) -> int:
+
+    # Read database info from config
+    cfg_file = os.path.abspath(os.path.expanduser(args.config))
+    print("Using config file:")
+    print(cfg_file)
+
+    db_cfg = read_cfg(cfg_file)
+
     # Database
     db_conn = None
-    db_conn = psycopg2.connect(database=DB,
-                                user=DB_USER,
-                                password=DB_PASS,
-                                host=DB_HOST,
-                                port=DB_PORT)
+    db_conn = mysql.connector.connect(
+        host=db_cfg['db_host'],
+        user=db_cfg['db_user'],
+        passwd=db_cfg['db_pass'],
+        port=db_cfg['db_port'],
+        database=db_cfg['db_name']
+    )
 
     if db_conn:
         print('Connected to database')
