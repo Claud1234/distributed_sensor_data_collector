@@ -172,5 +172,19 @@ class YOLOeScooterDetect(DetectorBase):
                 scoot_IDs.append(nms_classIDs[i])
                 scoot_names.append(nms_classNames[i])
 
+        # [x1, y1, w1, h1] = box
+        # print([x1, y1, w1, h1])
+        # print([x1-w1, y1, 3*w1, h1+h1//4])
+        # print("===========")
+        # [x2, y2, w2, h2] = [x1-w1, y1, 3*w1, h1+h1//4]
+
+        # if x2<0: x2=0
+        # if y2<0: y2=0
+
+        # bbox = (int(x2),
+        #         int(y2),
+        #         int(x2 + w2),
+        #         int(y2 + h2))
+
         # return nms_classIDs, nms_boxes, nms_confidences, nms_classNames
         return scoot_IDs, scoot_boxes, scoot_confs, scoot_names

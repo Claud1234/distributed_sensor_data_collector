@@ -5,8 +5,15 @@ import tensorflow_hub as hub
 
 class DetectorBase:
     def __init__(self, name: str, dataset: str, label_file: str, model_dim: int, threshold: float) -> None:
+        default_threshold = 0.5
+        
         self.model_dim = model_dim
-        self.threshold = float(threshold)
+
+        if threshold is not None and float(threshold) >= 0:
+            self.threshold = float(threshold)
+        else:
+            self.threshold = default_threshold
+
         self.name = name
         self.dataset = dataset
 

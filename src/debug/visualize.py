@@ -91,7 +91,7 @@ def visualize(image, labels, scores, boxes, threshold, radar_points, velocities,
     if output_video:
         output_video.write(image)
     else:
-        show_image(image, 'preview', 1280, 720)
+        show_image(image, 'preview', 1920, 1080)
 
     first_frame = False
 

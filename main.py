@@ -1,54 +1,131 @@
 #!/bin/env python3
 
 import argparse
+import json
 import os
 import sys
-import glob
-import natsort
-import cv2
-import psycopg2
 
-from src.process_frame import process_frame
+import cv2
+
+from src.db import DBHandler
 from src.ml_algorithms.mobilenet2_640 import Mobilenet_640_detector
 from src.ml_algorithms.yolo_escooter import YOLOeScooterDetect
+from src.process_frame import process_frame
 
 ML_MODEL_DICT = {
-    'mobilenetv2_640': Mobilenet_640_detector,
+    'mobilenetv2_640_coco': Mobilenet_640_detector,
     'YOLOeScooterDetect': YOLOeScooterDetect
 }
 
 IMAGE_EXT = '.jpg'
 RADAR_EXT = '_radar_*.json'
 
-DB = 'transport_ecosystem_management_db'
-DB_USER = 'db_user'
-DB_PASS = 'transport123'
-DB_HOST = 'localhost'
-DB_PORT = '5432'
+DEF_CFG_PATH = './cfg.json'
 
 
 def arg_parser() -> argparse:
 
-    parser = argparse.ArgumentParser(description='Rosbag unpacker')
-    parser.add_argument('-d', '--dir', help='Input directory to process')
-    parser.add_argument('-m', '--model', help='Model to be used for detection. Required.')
-    parser.add_argument('-lm', '--list-models', action='store_true', help='Lists valid models and exits')
-    parser.add_argument('-t', '--thresh', default=0.45, help='Model detection threshold')
-    parser.add_argument('-p', '--preview', action='store_true', help='Visualizes all processed frames before committing '
-                                                                     'the data into the database. Useful for debugging.')
-    parser.add_argument('-s', '--step', action='store_true', help='Allows stepping through the frames with space while visualizing (only used when --preview option is specified')
-    parser.add_argument('-v', '--video', help='Save output as video (cannot be used together with the --preview option)')
+    parser = argparse.ArgumentParser(description='Object Detector')
+    parser.add_argument('-d', '--data', 
+                        help='Directory to store the extracted frames. '
+                        'Overrides the value in the configuration file.')
+    parser.add_argument('-m', '--model', 
+                        help='Model to be used for detection. Required.')
+    parser.add_argument('-lm', '--list-models', action='store_true', 
+                        help='Lists valid models and exits')
+    parser.add_argument('-t', '--thresh', default=None, 
+                        help='Model detection threshold')
+    parser.add_argument('-p', '--preview', action='store_true', 
+                        help='Visualizes all processed frames before committing '
+                        'the data into the database. Useful for debugging.')
+    parser.add_argument('-s', '--step', action='store_true', 
+                        help='Allows stepping through the frames with space while visualizing '
+                        '(only used when --preview option is specified')
+    parser.add_argument('-v', '--video', 
+                        help='Save output as video (cannot be used together with the --preview option)')
+    parser.add_argument('-c', '--config', default=DEF_CFG_PATH,
+                        help='Path to configuration file (defaults to ./cfg.json)')
 
     args = parser.parse_args()
     return args
 
-def print_models() -> None:
+def get_valid_models(models: dict) -> list:
+    valid_models = []
+
+    for model in models.keys():
+        if model in ML_MODEL_DICT.keys():
+            valid_models.append(model)
+
+    return valid_models
+
+def print_models(models: dict, valid_models: list) -> None:
     print('Valid models are:')
-    for model in ML_MODEL_DICT.keys():
-        print(f"\t* {model}")
+
+    for name, model in models.items():
+        if name in valid_models:
+            print(f"* {model['name']}")
+            print(f"\t Comment:  {model['comment']}")
+            print(f"\t ML model: {model['model_name']}")
+            print(f"\t Dataset:  {model['dataset_name']}")
+
+def read_cfg(cfg_path: str) -> dict:
+
+    items = ['db_user', 'db_pass', 'db_name',
+             'db_port', 'db_host']
+
+    cfg = dict()
+
+    try:
+        with open(cfg_path, 'r') as cfg_file:
+            cfg = json.load(cfg_file)
+
+            for item in items:
+                if item not in cfg.get('db', {}).keys():
+                    print(f"CFG Error! '{item}' not in configuration file!")
+                    exit(1)
+    except Exception as e:
+        print(f"CFG Error! {str(e)}")
+        exit(1)
+
+    return cfg
 
 def main(args: argparse) -> int:
-    input_path = os.path.abspath(os.path.expanduser(args.dir))
+    print()
+    # Read database info from config
+
+    cfg_file = os.path.abspath(os.path.expanduser(args.config))
+    print("Using config file:")
+    print(cfg_file)
+
+    cfg = read_cfg(cfg_file)
+
+    # Connect to the database
+    db_conn = DBHandler(cfg.get('db', {}))
+    db_conn.fetch_models()
+    models = db_conn.get_models()
+
+    valid_models = get_valid_models(models)
+    
+    if len(valid_models) == 0:
+        print("Error! No models found that are implemented and exist in the DB!")
+        exit(1)
+
+    # If valid model not specified, print the list of models and exit
+    if args.list_models or not args.model or \
+       args.model not in valid_models:
+       
+        msgstr = "\nError: valid model not specified!" if not args.list_models else "\n"
+        print(msgstr)
+        print_models(models, valid_models)
+        return 0
+
+    input_path = args.data if args.data is not None else cfg.get('data_path', '')
+    input_path = os.path.abspath(os.path.expanduser(input_path))
+
+    if input_path == '' and not args.list:
+        print("No data folder specified in config or in arguments!", file=sys.stderr)
+        exit(1)
+
     print("Processing", input_path)
 
     if not os.path.isdir(input_path):
@@ -58,13 +135,6 @@ def main(args: argparse) -> int:
     if not os.access(input_path, os.R_OK):
         print('ERROR: No read access to directory:', args.process_folder, file=sys.stderr)
         return 1
-
-    # If valid model not specified, print the list of models and exit
-    if args.list_models or not args.model or args.model not in ML_MODEL_DICT.keys():
-        msgstr = "\nError: valid model not specified!" if not args.list_models else "\n"
-        print(msgstr)
-        print_models()
-        return 0
 
     # Output video flag
     if args.preview and args.video:
@@ -78,47 +148,34 @@ def main(args: argparse) -> int:
     print(f"\tModel Name: {detector.get_name()}")
     print(f"\tModel Dataset: {detector.get_dataset()}")
     print(f"\tInput Image Dimensions: {detector.get_dim()}x{detector.get_dim()}")
-    print(f"\tThreshold cutoff: {args.thresh}\n")
+    print(f"\tThreshold cutoff: {detector.get_threshold()}\n")
 
-    # Database
-    db_conn = None
-    if not args.preview and not args.video:
-        db_conn = psycopg2.connect(database=DB,
-                                   user=DB_USER,
-                                   password=DB_PASS,
-                                   host=DB_HOST,
-                                   port=DB_PORT)
-
-        if db_conn:
-            print('Connected to database')
-
-    # Read all jpg files in the folder
-    jpg_files = natsort.natsorted(glob.glob(os.path.join(input_path, f'*{IMAGE_EXT}')))
-
-    file_count = len(jpg_files)
+    # Get the list of unprocessed frames
+    print("Getting unprocessed frames from the database")
+    frames = db_conn.get_unprocessed_frames(models[args.model]['id'])
+    
+    if len(frames) == 0:
+        print("No frames found!")
+        exit(0)
 
     output_video = None
-    if args.video:
-        print(f"Saving output to {args.video}")
+    # if args.video:
+    #     print(f"Saving output to {args.video}")
         
-        # Read first image to get the size of the images
-        image = cv2.imread(jpg_files[0])
+    #     # Read first image to get the size of the images
+    #     image = cv2.imread(jpg_files[0])
 
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        output_video = cv2.VideoWriter(args.video, fourcc, 10, (image.shape[1], image.shape[0]))
+    #     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    #     output_video = cv2.VideoWriter(args.video, fourcc, 10, (image.shape[1], image.shape[0]))
 
-    for i, jpg in enumerate(jpg_files):
-        no_ext = os.path.splitext(jpg)
-        base_name = os.path.basename(no_ext[0])
 
-        # Find radar files that mach the frame
-        radar_file_regex = f'{no_ext[0]}{RADAR_EXT}'
-        radar_files = natsort.natsorted(glob.glob(os.path.join(input_path, radar_file_regex)))
+    for i, frame_id in enumerate(frames):
 
-        percentage = round(i * 100 / file_count, 1)
-        print(f'Processing: {base_name} ({percentage}%)')
+        percentage = round(i * 100 / len(frames), 1)
+        print(f'Processing: ({percentage}%)')
 
-        process_frame(args, jpg, radar_files, detector, db_conn, output_video)
+        files = db_conn.fetch_sensor_data(frame_id)
+        process_frame(args, input_path, files, detector, output_video)
 
         if args.preview:
             # ESC will close the program. Also without this line the 'X' button does not work.
@@ -138,11 +195,10 @@ def main(args: argparse) -> int:
     if args.preview:
         cv2.destroyAllWindows()
 
-    if args.video:
-        output_video.release()
+    # if args.video:
+    #     output_video.release()
 
-    if not args.preview and not args.video:
-        db_conn.close()
+    db_conn.close()
 
     return 0
 
