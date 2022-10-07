@@ -1,7 +1,7 @@
 import struct
 import numpy as np
 import math
-from src.camera import Camera, RadarPoint, Point3D
+from src.camera import Point3D
 
 DATA_TYPES = {
     1: 'b', # INT8
@@ -15,7 +15,7 @@ DATA_TYPES = {
 }
 
 class PointCloud:
-    def __init__(self, ros_msg, frame_no, is_2d=False):
+    def __init__(self, camera, ros_msg, frame_no, is_2d=False):
         self.frame_no = frame_no
 
         self.height = ros_msg.height
@@ -32,8 +32,7 @@ class PointCloud:
             'is_2d': is_2d
         }
 
-        # TODO: This should not be hardcoded.
-        self.camera = Camera((1920, 1080), -1.0, 3, 'src/calib.yaml', 0.036, False)
+        self.camera = camera
 
     def _get_format_str(self, format: int) -> str:
 

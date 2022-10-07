@@ -62,7 +62,7 @@ class RadarPoint:
 
 class Camera:
 
-    def __init__(self, dim: tuple, camera_altitude: float, device_angle: float,
+    def __init__(self, camera_altitude: float, device_angle: float,
                  calib_file: str, checkerboard_square_size, cuda: bool = False) -> None:
         """
         Class containing functions for camera calibration
@@ -76,7 +76,7 @@ class Camera:
         checkerboard_square_size: Square size of the checkerboard that was used for camera calibration
         """
 
-        self.dim = dim
+        self.dim = None
 
         # Camera matrix
         self.K = None
@@ -177,6 +177,11 @@ class Camera:
 
         with open(calib_file, 'r') as file:
             calib_data = yaml.safe_load(file)
+
+            # Dimensions
+            width = calib_data['image_width']
+            height = calib_data['image_height']
+            self.dim = (width, height)
 
             # Camera matrix
             rows = calib_data['camera_matrix']['rows']

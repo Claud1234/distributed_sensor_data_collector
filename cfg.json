@@ -1,7 +1,11 @@
 {
-    "db_user": "db_user",
-    "db_pass": "transport123",
-    "db_name": "transport_ecosystem_management_db",
-    "db_port": 3306,
-    "db_host": "172.17.0.1"
+    "db":
+    {
+        "db_user": "db_user",
+        "db_pass": "transport123",
+        "db_name": "transport_ecosystem_management_db",
+        "db_port": 3306,
+        "db_host": "172.17.0.1"
+    },
+    "data_path": "~/finest_data"
 }

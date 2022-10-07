@@ -4,8 +4,10 @@ import json
 from src.topics import LastFrame
 from src.serialize.image import RosImage
 from src.serialize.pcl import PointCloud
+from src.camera import Camera
 
-def process_frame(frame: LastFrame, save_path: str, folder: str, 
+
+def process_frame(camera: Camera, frame: LastFrame, save_path: str, folder: str, 
                   radar_2d: bool, topics: dict) -> list:
 
     frame_sensors = list()
@@ -35,9 +37,10 @@ def process_frame(frame: LastFrame, save_path: str, folder: str,
             img = RosImage(frame.data[sensor])
             img.save(sensor_file_path)
 
+
         # Process radar pointclouds
         elif sensor in topics.get("radar", []):
-            pcl = PointCloud(frame.data[sensor], frame.frame_counter, radar_2d)
+            pcl = PointCloud(camera, frame.data[sensor], frame.frame_counter, radar_2d)
             pcl.read_pc()
             pcl_obj = pcl.get_obj()
 

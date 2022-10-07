@@ -29,7 +29,7 @@ def read_cfg(cfg_path: str) -> dict:
             cfg = json.load(cfg_file)
 
             for item in items:
-                if item not in cfg.keys():
+                if item not in cfg.get('db', {}).keys():
                     print(f"CFG Error! '{item}' not in configuration file!")
                     exit(1)
     except Exception as e:
@@ -534,7 +534,8 @@ def main(parser: argparse.ArgumentParser) -> int:
 
     # Read config file
     cfg_file = os.path.abspath(os.path.expanduser(args.config))
-    db_cfg = read_cfg(cfg_file)
+    cfg = read_cfg(cfg_file)
+    db_cfg = cfg.get('db', {})
 
     # Read DB structure from JSON file for easier manipulation
     struct_file = os.path.abspath(os.path.expanduser(args.structure))

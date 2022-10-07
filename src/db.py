@@ -25,6 +25,9 @@ class DBHandler():
 
         self._read_sensor_data()
 
+    def close(self) -> None:
+        self.database.close()
+
     def _read_sensor_data(self) -> None:
         """
         Reads sensor metadata from the DB
@@ -101,7 +104,15 @@ class DBHandler():
         return sensor_topics
 
     def save_frame(self, timestamp: float, sensor_data: list):
+        """
+        Saves frame data into the DB
 
+        Args:
+            timestamp (float): Frame timestamp
+            sensor_data (list): List of sensor dictionaries containing
+                                information about sensors used for this frame
+        """
+        
         dt = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
         
         # Store frame entry
@@ -136,13 +147,14 @@ class DBHandler():
                 print("Warning: unknown sensor:", topic)
                 continue
             
-            sql = "INSERT INTO frame_sensor (frame_id, sensor_id, file_name, sensor_data) VALUES (%s, %s, %s, %s)"
+            sql = "INSERT INTO frame_sensor (frame_id, sensor_id, file_name, sensor_data) " \
+                  "VALUES (%s, %s, %s, %s)"
             val = (frame_id, sensor_id, s_file, s_data)
 
-            # try:
-            self.cursor.execute(sql, val)
-            self.database.commit()
-            # except:
-                # print("Error inserting frame_sensor to database")
-                # self.database.rollback()
+            try:
+                self.cursor.execute(sql, val)
+                self.database.commit()
+            except:
+                print("Error inserting frame_sensor to database")
+                self.database.rollback()
 

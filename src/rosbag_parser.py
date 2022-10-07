@@ -1,14 +1,15 @@
-import os
 import argparse
+import itertools
+import os
 
 import progressbar
 import rosbag
 import rospy
-import itertools
 
-from src.topics import LastFrame
-from src.frame import process_frame
+from src.camera import Camera
 from src.db import DBHandler
+from src.frame import process_frame
+from src.topics import LastFrame
 
 
 class RosbagParser():
@@ -124,11 +125,11 @@ class RosbagParser():
         if self.args.progress:
             bar.finish()
 
-    def parse_rosbag(self) -> None:
+    def parse_rosbag(self, camera: Camera) -> None:
         """
         Parses a rosbag file
         """
-
+        
         i = 0
 
         # Set up progressbar
@@ -162,8 +163,8 @@ class RosbagParser():
                     # If we have collected enough data for the frame
                     if self.last_frame_msg.has_enough_data(self.get_valid_topic_list()):
                         # Save the frame data
-                        frame_sensors = process_frame(self.last_frame_msg, self.save_path, self.folder,
-                                            self.args.radar_2d, self.get_valid_topics())
+                        frame_sensors = process_frame(camera, self.last_frame_msg, self.save_path, 
+                                            self.folder, self.args.radar_2d, self.get_valid_topics())
                         if self.db:
                             self.db.save_frame(time_ns / 1e9, frame_sensors)
 
