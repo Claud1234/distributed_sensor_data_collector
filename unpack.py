@@ -159,8 +159,7 @@ def main(args: argparse.Namespace):
             if len(tmp_topics) > 0:
                 valid_topics[sensor] = tmp_topics
 
-        output_path = args.data if args.data is not None else cfg.get(
-            'data_path', '')
+        output_path = args.data if args.data is not None else cfg.get('data_path', '')
         output_path = os.path.abspath(os.path.expanduser(output_path))
 
         if output_path == '' and not args.list:
