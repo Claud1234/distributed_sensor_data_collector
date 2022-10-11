@@ -61,46 +61,31 @@ def visualize_model_output(frame: np.array, boxes: np.array, scores: np.array,
 
     y_coord = 21
     for metadata in frame_metadata:
-        cv2.putText(frame, metadata, (10, y_coord), 0, 5e-3 * 150, (0, 255, 0), 2)
+        cv2.putText(frame, metadata, (10, y_coord), 0, 5e-3 * 150, (0, 255, 255), 2)
         y_coord += 30
 
     for i, bbox in enumerate(boxes):
 
-        cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(
-            bbox[2]), int(bbox[3])), (255, 255, 255), 2)
+        cv2.rectangle(frame, (int(bbox[0][0]), int(bbox[0][1])), (int(
+            bbox[1][0]), int(bbox[1][1])), (255, 255, 255), 2)
 
-        # cv2.putText(frame, str(f'{int(scores[i]*100)}%'), (int(bbox[0]), int(
-        #     bbox[1])), 0, 5e-3 * 200, (0, 255, 0), 2)
+        cv2.putText(frame, str(f'{int(velocities[i]*18/5)}km/h'), (int(bbox[1][0]), int(
+            bbox[0][1]) + 22), 0, 5e-3 * 150, (0, 255, 255), 2)
 
-        cv2.putText(frame, str(f'{int(velocities[i]*18/5)}km/h'), (int(bbox[2]), int(
-            bbox[1]) + 22), 0, 5e-3 * 150, (0, 255, 0), 2)
-
-        cv2.putText(frame, str(labels[i]), (int(bbox[2]), int(
-            bbox[3] - 5)), 0, 5e-3 * 150, (0, 255, 0), 2)
+        cv2.putText(frame, str(labels[i]), (int(bbox[1][0]), int(
+            bbox[1][1] - 5)), 0, 5e-3 * 150, (0, 255, 255), 2)
 
     return frame
-
-def db_box_to_list(db_box: str):
-    db_box = db_box.replace('(', '')
-    db_box = db_box.replace(')', '')
-
-    db_box = db_box.split(',')
-    bbox = [int(i) for i in db_box]
-
-    return bbox
 
 def visualize(db_objects):
     global first_frame
 
     img_file = db_objects[0].image_file
-    radar_files = db_objects[0].radar_file
+    radar_files = db_objects[0].radar_files
 
     frame_id = db_objects[0].frame_id
-    self_speed = db_objects[0].self_speed
-    gps = db_objects[0].gps
 
-    timestamp = db_objects[0].timestamp / 1000000000
-    time_str = datetime.datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    time_str = db_objects[0].timestamp
 
     print(f"Image file: {img_file}")
     print(f"Radar files:")
@@ -113,16 +98,12 @@ def visualize(db_objects):
     velocities = []
 
     frame_metadata = [f'Frame ID: {frame_id}',
-                     f'Recorder speed: {self_speed}',
-                     f'GPS coords: {gps}',
                      f'Timestamp: {time_str}']
 
     for db_object in db_objects:
-        bbox_str = db_object.bbox
-        bbox = db_box_to_list(bbox_str)
-        boxes.append(bbox)
-        scores.append(0)
-        labels.append(db_object.obj_class)
+        boxes.append(db_object.bounding_box)
+        scores.append(db_object.confidence)
+        labels.append(db_object.class_name)
         velocities.append(db_object.speed)
 
     image = cv2.imread(img_file)
