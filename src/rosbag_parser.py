@@ -140,7 +140,7 @@ class RosbagParser():
 
         # Read rosbag topics
         for topic, msg, t in self.bag.read_messages():
-
+            
             # Sensor is a camera
             if topic in self.topics.get('camera', []):
                 self.last_frame_msg.data[topic] = msg.data

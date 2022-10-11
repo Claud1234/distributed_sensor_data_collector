@@ -177,7 +177,7 @@ def main(args: argparse.Namespace):
 
         # TODO: This should not be hardcoded.
         camera = Camera(CAMERA_GROUND_HEIGHT, CAMERA_ANGLE, 
-                        CAMERA_CALIB_DATA, CAMERA_CALIBRATION_SIZE, False)
+                        CAMERA_CALIB_DATA, CAMERA_CALIBRATION_SIZE)
 
         # Process rosbag
         bag_parser = RosbagParser(args, db, save_path, folder, 

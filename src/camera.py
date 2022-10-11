@@ -1,8 +1,6 @@
 """
 Contains functions which are needed for point projection and image undistoration
 """
-import sys
-
 import yaml
 import numpy as np
 import cv2
@@ -63,7 +61,7 @@ class RadarPoint:
 class Camera:
 
     def __init__(self, camera_altitude: float, device_angle: float,
-                 calib_file: str, checkerboard_square_size, cuda: bool = False) -> None:
+                 calib_file: str, checkerboard_square_size) -> None:
         """
         Class containing functions for camera calibration
         Parameters
@@ -72,7 +70,6 @@ class Camera:
         camera_altitude: height of the device from ground during mounting (in meters)
         device_angle: Mounting angle of the device, in degrees
         calib_file: Path to the YAML file containing the calibration data
-        cuda: If True, undistortion matrices will be loaded into CUDA memory
         checkerboard_square_size: Square size of the checkerboard that was used for camera calibration
         """
 
@@ -119,14 +116,6 @@ class Camera:
         # Cropping rectangle
         self.crop_rect = self._calculate_crop_rect_from_roi(roi)
 
-        self.undistort_mapx_gpu = None
-        self.undistort_mapy_gpu = None
-
-        # Load the undistortion matrices to GPU memory
-        if cuda:
-            self.undistort_mapx_gpu = cv2.cuda_GpuMat(self.undistort_mapx)
-            self.undistort_mapy_gpu = cv2.cuda_GpuMat(self.undistort_mapy)
-
         # Rotation of radar points
         x_rot_angle = 90 + device_angle
         y_rot_angle = 0
@@ -147,7 +136,6 @@ class Camera:
 
         # Final rotational matrix
         self.R = np.dot(np.dot(zr, yr), xr)
-        # self.R = self.quaternion_rotation_matrix(-0.5, 0.4999999999999999, -0.5, 0.5000000000000001)
 
     def _calculate_crop_rect_from_roi(self, roi):
         """
@@ -247,24 +235,6 @@ class Camera:
 
         return undistorted_frame
 
-    def undistort_frame_gpu(self, frame: cv2.cuda_GpuMat) -> cv2.cuda_GpuMat:
-        """
-        Undistorts a frame from a wide angle camera using GPU (CUDA)
-        Parameters
-        ----------
-        frame: CUDA frame to undistort
-
-        Returns
-        -------
-        Undistored CUDA frame
-        """
-
-        if self.undistort_mapx_gpu is None or self.undistort_mapy_gpu is None:
-            raise RuntimeError('CUDA not initialized for camera!')
-
-        undistorted_frame = cv2.cuda.remap(frame, self.undistort_mapx_gpu, self.undistort_mapy_gpu, cv2.INTER_LINEAR)
-        return undistorted_frame
-
     def quaternion_rotation_matrix(self, q0, q1, q2, q3):
         """
         Covert a quaternion into a full three-dimensional rotation matrix.
@@ -277,11 +247,6 @@ class Camera:
                 This rotation matrix converts a point in the local reference 
                 frame to a point in the global reference frame.
         """
-        # Extract the values from Q
-        # q0 = Q[0]
-        # q1 = Q[1]
-        # q2 = Q[2]
-        # q3 = Q[3]
         
         # First row of the rotation matrix
         r00 = 2 * (q0 * q0 + q1 * q1) - 1
@@ -465,25 +430,6 @@ class Camera:
         Cropped frame
         """
         return frame[self.crop_rect.y_min:self.crop_rect.y_max, self.crop_rect.x_min:self.crop_rect.x_max]
-
-    def crop_frame_gpu(self, frame: cv2.cuda_GpuMat) -> cv2.cuda_GpuMat:
-        """
-        Crops the frame according to the crop rectangle on CUDA
-        Parameters
-        ----------
-        frame: The CUDA frame that is going to be cropped
-
-        Returns
-        -------
-        Cropped CUDA frame
-        """
-
-        xmin = self.crop_rect.x_min
-        ymin = self.crop_rect.y_min
-        xmax = self.crop_rect.x_max - self.crop_rect.x_min
-        ymax = self.crop_rect.y_max - self.crop_rect.y_min
-
-        return cv2.cuda_GpuMat(frame, (xmin, ymin, xmax, ymax))
 
     def transform_coordinates(self, point_in_m: Point3D) -> Point3D:
         """
