@@ -1,16 +1,17 @@
 import argparse
-import cv2
-import numpy as np
 import os
 
-from src.ml_algorithms.ml_base import DetectorBase
-from src.radar import RadarPoint, read_radar_points, get_detection_speeds
+import cv2
+import numpy as np
+
+from src.db import DBHandler
 from src.debug.visualize import visualize
-from src.database_connector import add_to_db
+from src.ml_algorithms.ml_base import DetectorBase
+from src.radar import get_detection_speeds, read_radar_points
 
 
-def process_frame(args: argparse, data_path: str, files: dict, detector: DetectorBase, 
-                  output_video: np.ndarray) -> int:  
+def process_frame(args: argparse, first_frame: bool, frame_id: int, data_path: str, db_conn: DBHandler, 
+                  model_data: dict, files: dict, detector: DetectorBase, output_video: np.ndarray) -> int:  
 
     if len(files.get('camera', [])) == 0:
         print("Warning! Frame with no camera image")
@@ -19,16 +20,13 @@ def process_frame(args: argparse, data_path: str, files: dict, detector: Detecto
     image_path = os.path.join(data_path, files.get('camera', [])[0])
 
     image = cv2.imread(image_path)
-    # image = cv2.resize(image, (1280, 720))
-
 
     height = image.shape[0]
     width = image.shape[1]
     
     radar_files = [os.path.join(data_path, radar) for radar in files.get('radar', [])]
 
-    _, boxes, scores, labels = detector.detect(image)
-    # print(boxes)
+    ids, boxes, scores, labels = detector.detect(image)
 
     bboxes = []
     for box in boxes:
@@ -46,10 +44,13 @@ def process_frame(args: argparse, data_path: str, files: dict, detector: Detecto
     threshold = detector.get_threshold()
 
     if args.preview or args.video:
-        visualize(image, labels, scores, bboxes, threshold, radar_points, velocities, output_video)
+        visualize(image, first_frame, labels, scores, bboxes, threshold, radar_points, velocities, output_video)
 
-    # else:
-    #     if True in (scores > threshold):
-    #         add_to_db(db_conn, detector, image_file, radar_files, labels, bboxes, threshold, velocities, scores)
+    else:
+        if True in (scores > threshold):
+            db_conn.save_objs(frame_id, model_data, threshold, ids, labels, 
+                              bboxes, velocities, scores)
+
+        db_conn.mark_frame_processed(frame_id, model_data.get('id'))
 
     return 0

@@ -1,29 +1,26 @@
 import cv2
 import numpy as np
 
-first_frame = True
-
-
-def show_image(image: np.array, window_name: str, width: int = None, height: int = None,
-               full_screen: bool = False) -> None:
+def show_image(image: np.array, window_name: str, first_frame: bool, width: int = None, 
+               height: int = None, full_screen: bool = False) -> None:
     """
     Shows an image in a resizable window
     Parameters
     ----------
     image: OpenCV image to show
     window_name: Name of the window
+    first_frame: (bool) Specifies if the current frame is the first frame
     width: Window's width at creation time (only used if full_screen is False)
     height: Window's height at creation time (only used if full_screen is False)
 
     full_screen: (bool) If set to True (default), the window will be shown in full screen,
                         otherwise a normal window will be displayed
 
+
     Returns
     -------
     None
     """
-
-    global first_frame
 
     # Show image
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
@@ -76,8 +73,8 @@ def visualize_model_output(frame: np.array, boxes: np.array, scores: np.array,
     return frame
 
 
-def visualize(image, labels, scores, boxes, threshold, radar_points, velocities, output_video):
-    global first_frame
+def visualize(image, first_frame, labels, scores, boxes, threshold, 
+              radar_points, velocities, output_video):
 
     radar_colors = [(255, 0, 255), (255, 255, 0)]
 
@@ -91,8 +88,7 @@ def visualize(image, labels, scores, boxes, threshold, radar_points, velocities,
     if output_video:
         output_video.write(image)
     else:
-        show_image(image, 'preview', 1920, 1080)
+        show_image(image, 'preview', first_frame, 1920, 1080)
 
-    first_frame = False
 
 

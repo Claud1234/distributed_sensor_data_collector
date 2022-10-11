@@ -159,15 +159,7 @@ def main(args: argparse) -> int:
         exit(0)
 
     output_video = None
-    # if args.video:
-    #     print(f"Saving output to {args.video}")
-        
-    #     # Read first image to get the size of the images
-    #     image = cv2.imread(jpg_files[0])
-
-    #     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    #     output_video = cv2.VideoWriter(args.video, fourcc, 10, (image.shape[1], image.shape[0]))
-
+    first_frame = True
 
     for i, frame_id in enumerate(frames):
 
@@ -175,7 +167,28 @@ def main(args: argparse) -> int:
         print(f'Processing: ({percentage}%)')
 
         files = db_conn.fetch_sensor_data(frame_id)
-        process_frame(args, input_path, files, detector, output_video)
+
+        # Load first image to get its dimensions and use it to initialize video recording
+        if first_frame and args.video:
+            if len(files.get('camera', [])) == 0:
+                print("Error! Frame with no camera image, cannot use video mode")
+                exit(1)
+    
+            video_path = os.path.abspath(os.path.expanduser(args.video))
+            print(f"Saving video output to {video_path}")
+
+            image_path = os.path.join(input_path, files.get('camera', [])[0])
+            image = cv2.imread(image_path)
+
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            output_video = cv2.VideoWriter(video_path, fourcc, 10, (image.shape[1], image.shape[0]))  
+        
+
+        process_frame(args, first_frame, frame_id, input_path, db_conn, models[args.model],
+                      files, detector, output_video)
+
+        if first_frame:
+            first_frame = False
 
         if args.preview:
             # ESC will close the program. Also without this line the 'X' button does not work.
