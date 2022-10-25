@@ -1,0 +1,6 @@
+*.pyc
+.idea
+.directory
+.catkin_tools/
+tem_db.sql.bak
+
