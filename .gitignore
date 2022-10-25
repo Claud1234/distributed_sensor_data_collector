@@ -1,10 +1,7 @@
 *.pyc
-
 .idea
 .directory
 .catkin_tools/
 tem_db.sql.bak
-
-
-.directory
+assets/yolov3.weights
 

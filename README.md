@@ -16,3 +16,6 @@ Unpacks the rosbag containing camera images and radar pointclouds file into sepa
 | `--overwrite` | `-ow`         | Overwrite the output directory. If this value is not specified, the output directory will not be overwritten.                                                                                    |
 | `--progress`  | `-p`          | Display progress bar                                                                                                                                                                             |
 
+# Object Detector
+
+Reads images and radar files, performs machine learning on the images and stores data in the database
