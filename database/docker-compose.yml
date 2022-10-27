@@ -19,13 +19,24 @@ services:
     extra_hosts:
       - "host.docker.internal:172.17.0.1"
 
-  adminer:
-    image: adminer
+  phpmyadmin:
+    image: phpmyadmin
+    links:
+      - mysql
+    environment:
+      PMA_HOST: mysql
     restart: 'no'
     ports:
-      - 8080:8080
+      - 8080:80
     extra_hosts:
       - "host.docker.internal:172.17.0.1"
+#  adminer:
+#    image: adminer
+#    restart: 'no'
+#    ports:
+#      - 8080:8080
+#    extra_hosts:
+#      - "host.docker.internal:172.17.0.1"
 
 volumes:
   mysql-data:

@@ -1,4 +1,5 @@
 *.pyc
+.project
 .idea
 .directory
 .catkin_tools/
