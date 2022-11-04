@@ -295,7 +295,8 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
     return 0
 
 
-def delete_entry(database: mysql.connector.connect, cur: mysql.connector.cursor.MySQLCursor,
+def delete_entry(database: mysql.connector.connect, 
+                 cur: mysql.connector.cursor.MySQLCursor,
                  tab_name: str, ids: list) -> None:
 
     # Build an SQL query

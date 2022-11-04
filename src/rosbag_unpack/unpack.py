@@ -137,7 +137,6 @@ def main(args: argparse.Namespace):
         bag_parser.print_topics()
 
     else:
-
         # Read sensor data from the
         db = DBHandler(cfg.get('db', dict()))
 

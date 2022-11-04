@@ -1,11 +1,41 @@
 
 # Finest Mobility
+This is the database and dataset for Finest Pilot project. 
 
-# Rosbag Unpacker
+## Database 
+The database was dumped in docker. Please make sure you have the docker compose installed in your system. It is recommended here to install the docker compose through the repository instead of downloading the binary. Check docker compose with 
 
-Unpacks the rosbag containing camera images and radar pointclouds file into separate frames, serializes radar data into JSON format, and (optionally) stores them into a database.
+```
+docker compose version
+```
 
-## Usage
+Go to the 'database' folder, make sure the 'docker-compose.yml' is available, and create the database.
+
+```
+cd finest_mobility/database
+docker compose up -d
+docker compose run mysql bash -c "mysql -h host.docker.internal -P 3306 -u db_user -ptransport123 transport_ecosystem_management_db < /tmp/sql/database.sql"
+```
+
+Then the docker will pull the corresponding images and running in background. If you want to close the database, run command
+
+```
+docker compose down
+```
+
+
+##Rosbag Unpack
+Unpacks the rosbag containing camera images and radar point clouds file into separate 
+frames, serializes radar data into JSON format, and (optionally) stores them into a database.
+
+###Dependencies 
+It is recommended to use the python3 for executing the scripts. Install the python modules
+
+```
+pip3 install mysql mysql-connector Pillow argparse progressbar2 opencv-python pyyaml numpy dataclasses pycryptodomex gnupg rospkg 
+```
+
+###Usage
 
 | Command       | Short Command | Desrciption                                                                                                                                                                                      |
 | ------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -16,6 +46,7 @@ Unpacks the rosbag containing camera images and radar pointclouds file into sepa
 | `--overwrite` | `-ow`         | Overwrite the output directory. If this value is not specified, the output directory will not be overwritten.                                                                                    |
 | `--progress`  | `-p`          | Display progress bar                                                                                                                                                                             |
 
-# Object Detector
+## Object Detector
 
-Reads images and radar files, performs machine learning on the images and stores data in the database
+Reads images and radar files, performs machine learning on the images and stores 
+data in the database

@@ -99,7 +99,6 @@ class RosbagParser():
         print()
 
     def read_topics(self) -> None:
-
         """
         Reads all topics from a rosbag file
         """
@@ -110,7 +109,8 @@ class RosbagParser():
         if self.args.progress:
             msg_count = self.bag.get_message_count()
             bar = progressbar.ProgressBar(
-                max_value=msg_count, prefix='Analyzing rosbag: ', redirect_stdout=True)
+                max_value=msg_count, prefix='Analyzing rosbag: ', 
+                        redirect_stdout=True)
 
         # Read topics
         for topic, _, _ in self.bag.read_messages():
