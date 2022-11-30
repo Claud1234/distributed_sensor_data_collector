@@ -24,15 +24,15 @@ class RosbagParser():
         Constructor
 
         Args:
-            bag (argparse.Namespace): Program's arguments
+            (argparse.Namespace): Program's arguments
             valid_topics (dict, optional): Object containing all topics to read. 
-                                       If None, the topics are guessed automatically 
-                                       at object's creation time. Defaults to None.
+                                If None, the topics are guessed automatically
+                                at object's creation time. Defaults to None.
         """
 
         self.args = args
 
-        self.bag = rosbag.Bag(args.rosbag)
+        self.bag = rosbag.Bag(args.bag)
         self.topics = valid_topics
         self.save_path = save_path
         self.folder = folder
@@ -40,14 +40,15 @@ class RosbagParser():
         self.db = db
 
         # Timestamp for the file
-        self.timestamp = os.path.getmtime(args.rosbag)
+        self.timestamp = os.path.getmtime(args.bag)
 
         self.last_frame_msg = LastFrame(0, 0, dict())
         self.freq = int((1/args.fps) * 1e9)
 
         self.bag_topics = []
 
-        print(f"Saving frames after every {self.freq} ns ({self.freq / 1e9} s, {args.fps} FPS)")
+        # print(f"Saving frames after every {self.freq} ns ({self.freq / 1e9} s, "
+        #       f"{args.fps} FPS)")
 
     def __del__(self) -> None:
         """
@@ -88,15 +89,12 @@ class RosbagParser():
         """
         Prints rosbag topics on screen
         """
-        
         # Print results
-        print("\nTOPICS:")
-        print("=" * 10)
+        print("\nTopics in bag:")
+        print("=" * 20)
 
         for topic in self.bag_topics:
             print(topic)
-
-        print()
 
     def read_topics(self) -> None:
         """
@@ -104,13 +102,12 @@ class RosbagParser():
         """
 
         i = 0
-
         # Progressbar
         if self.args.progress:
             msg_count = self.bag.get_message_count()
             bar = progressbar.ProgressBar(
-                max_value=msg_count, prefix='Analyzing rosbag: ', 
-                        redirect_stdout=True)
+                max_value=msg_count, prefix='Analyzing rosbag: ',
+                redirect_stdout=True)
 
         # Read topics
         for topic, _, _ in self.bag.read_messages():
@@ -136,7 +133,8 @@ class RosbagParser():
         if self.args.progress:
             msg_count = self.bag.get_message_count()
             bar = progressbar.ProgressBar(
-                max_value=msg_count, prefix='Processing: ', redirect_stdout=True)
+                max_value=msg_count, prefix='Processing: ',
+                redirect_stdout=True)
 
         # Read rosbag topics
         for topic, msg, t in self.bag.read_messages():

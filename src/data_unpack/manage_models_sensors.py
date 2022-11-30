@@ -8,8 +8,9 @@ from enum import Enum
 
 import mysql.connector
 
-DB_STRUCTURE_JSON_PATH = "./structure.json"
-DEF_CFG_PATH = './cfg.json'
+DB_STRUCTURE_JSON_PATH = "config/db_structure.json"
+DEF_CFG_PATH = 'config/data_unpack.json'
+
 
 class Actions(Enum):
     ADD = 1
@@ -18,10 +19,8 @@ class Actions(Enum):
 
 
 def read_cfg(cfg_path: str) -> dict:
-
-    items = ['db_user', 'db_pass', 'db_name',
-             'db_port', 'db_host']
-
+    items = ['db_user', 'db_pass', 'db_name', 'db_port', 'db_host']
+    
     cfg = dict()
 
     try:
@@ -81,7 +80,7 @@ def ask_value(desc: str, required: bool, max_len: int, ask_id=False) -> str:
         max_len (int): Maximum lenght of the entry in characters
         max_len (bool): Maximum lenght of the entry in characters
         ask_id (bool): Changes the input prompt. If True, it asks the user
-                   to enter an ID for the table to be connected to the foreign key.
+                   to enter an ID for the table to be connected to foreign key.
                    If False, it will just ask for a value. Defaults toi False
     Returns:
         str: The string entered by the user. None if user skipped the entry
@@ -93,7 +92,8 @@ def ask_value(desc: str, required: bool, max_len: int, ask_id=False) -> str:
         if ask_id:
             entry_prompt = "Enter ID for the chosen row: "
         else:
-            entry_prompt = f"Enter value for '{desc}' field, {max_len} chars max {skip_str}: "
+            entry_prompt = f"Enter value for '{desc}' field, " \
+                            f"{max_len} chars max {skip_str}: "
 
         entry = input(entry_prompt)
 
@@ -116,20 +116,21 @@ def ask_value(desc: str, required: bool, max_len: int, ask_id=False) -> str:
 
 
 def get_foreign_key(fk_table: str, table_struct: dict,
-                    cur: mysql.connector.cursor.MySQLCursor, print_json: bool) -> int:
+                    cur: mysql.connector.cursor.MySQLCursor,
+                    print_json: bool) -> int:
     """
     Gets a foreign key from the user
 
     Args:
-        dataBase (mysql.connector.connect): Database connection object
         fk_table (str): Name of the table the foreign key points to
         table_struct (dict): Dictionary object representing the table structure
         cur (mysql.connector.cursor.MySQLCursor): Database cursor object
-        print_json (bool): If True, also the JSON data is printed when reading back
-                           the data from the table
+        print_json (bool): If True, also the JSON data is printed when reading
+                           back the data from the table
 
     Returns:
-        int: id of the row in in the foreign key table to be associated with the foreign key
+        int: id of the row in the foreign key table to be associated with the
+            foreign key
     """
 
     list_entries(table_struct, fk_table, cur, print_json, id=-1)
@@ -146,7 +147,7 @@ def db_insert(database: mysql.connector.connect, tab_name: str, keys: list,
     Args:
         database (mysql.connector.connect): Database connection object
         tab_name (str): Name of the table to insert the row into
-        keys (list): List of all keys. Needs to be the same length as values
+        keys (list): List of all keys. Needs to be the same length as values.
         values (list): List of all values of the keys to be inserted. 
                        Needs to be the same length as keys
         cur (mysql.connector.cursor.MySQLCursor): Database cursor object
@@ -178,7 +179,8 @@ def db_insert(database: mysql.connector.connect, tab_name: str, keys: list,
 def get_entries(cur: mysql.connector.cursor.MySQLCursor,
                 tab_name: str, field: str, id: int) -> list:
     """
-    Gets the IDs of entries from table 'tab_name' where the field with name 'field' == 'id'
+    Gets the IDs of entries from table 'tab_name' where the field with
+    name 'field' == 'id'
 
     Args:
         cur (mysql.connector.cursor.MySQLCursor): Database cursor object
@@ -202,7 +204,7 @@ def get_entries(cur: mysql.connector.cursor.MySQLCursor,
     return ret
 
 
-def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: str,
+def add_entry(database: mysql.connector.connect, table_struct: dict, tab_key: str,
               cur: mysql.connector.cursor.MySQLCursor, print_json: bool) -> int:
     """
     Inserts an entry into the database
@@ -247,21 +249,24 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
         field_name = field.get('name', None)
         if field_name is None:
             print(
-                f"ERROR: No name for a field in table{tab_name} in strucure file!")
+                f"ERROR: No name for a field in table{tab_name} "
+                f"in structure file!")
             return 1
 
         field_required = field.get('required', False)
         field_fk = field.get('fk', False)
         field_fk_table = field.get('fk_table', None)
         if field_fk and field_fk_table is None:
-            print(f"ERROR: Field {field_name} in {tab_name} marked as foreign key in strucure file, "
+            print(f"ERROR: Field {field_name} in {tab_name} "
+                  "marked as foreign key in structure file, "
                   "but no field_fk_table entry found!")
             return 1
 
         field_size = field.get('size', None)
         if field_size is None and not field_fk:
             print(
-                f"Warning field size for field {field_name} not specified! Defaulting to 64")
+                f"Warning field size for field {field_name} "
+                "not specified! Defaulting to 64")
             field_size = 64
 
         # Field is a foreign key
@@ -287,7 +292,7 @@ def add_entry(dataBase: mysql.connector.connect, table_struct: dict, tab_key: st
             values.append(str(val))
 
     # Insert the line to the DB. Get back the ID if the inserted row
-    id = db_insert(dataBase, tab_name, keys, values, cur)
+    id = db_insert(database, tab_name, keys, values, cur)
 
     #  Read the inserted row back from the DB
     list_entries(table_struct, tab_key, cur, print_json, id)
@@ -327,7 +332,7 @@ def remove_entry(database: mysql.connector.connect, table_struct: dict, tab_key:
     # we need to delete that also
     table = table_struct.get(tab_key, None)
     if table is None:
-        print(f"ERROR: Cannot find table {tab_key} in strucure file!")
+        print(f"ERROR: Cannot find table {tab_key} in structure file!")
         return 1
 
     tab_name = table.get('table_name', None)
@@ -353,7 +358,7 @@ def remove_entry(database: mysql.connector.connect, table_struct: dict, tab_key:
 
         if len(fk_entries) > 0:
             print("If you delete this entry, also the following entries "
-                  "reffering to this will be deleted:")
+                  "referring to this will be deleted:")
             print(f"From table '{fk_tab}'")
             for entry in fk_entries:
                 print(fk_entries, entry)
@@ -377,21 +382,24 @@ def remove_entry(database: mysql.connector.connect, table_struct: dict, tab_key:
         exit(0)
 
 
-def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.MySQLCursor,
+def list_entries(table_struct: dict, tab_key: str,
+                 cur: mysql.connector.cursor.MySQLCursor,
                  print_json: bool, id=-1) -> int:
     """
     Reads all table contents and displays on screen. If id == -1,
     it will read the contents of all tables. If id is non-negative,
-    it will read the contents of the row with id number defined by the id parameter
+    it will read the contents of the row with id number defined by the
+    id parameter
 
     Args:
         table_struct (dict): Dictionary object representing the table structure
-        tab_key (str): Key that points to the current table in the table structure
+        tab_key (str): Key that points to the current table in table structure
         cur (mysql.connector.cursor.MySQLCursor): Database cursor object
-        print_json (bool): If True, also the JSON data is printed when reading back
-                           the data from the table
+        print_json (bool): If True, also the JSON data is printed when reading
+                            back the data from the table
         id (int, optional): ID of the row to read from the table.
-                            If id is negative, all rows are read. Defaults to -1.
+                            If id is negative, all rows are read.
+                            Defaults to -1.
 
     Returns:
         int: 0 when no error occurred, one otherwise
@@ -476,8 +484,7 @@ def list_entries(table_struct: dict, tab_key: str, cur: mysql.connector.cursor.M
 
 
 def arg_parser() -> argparse.ArgumentParser:
-
-    parser = argparse.ArgumentParser(description='Rosbag unpacker')
+    parser = argparse.ArgumentParser(description='Database Input')
     cmd_group = parser.add_argument_group("Action (choose one)")
     cmd = cmd_group.add_mutually_exclusive_group()
     cmd.add_argument('-i', '--insert', action='store_true',
@@ -501,16 +508,17 @@ def arg_parser() -> argparse.ArgumentParser:
                       help='Modify sensor table')
     gen_group = parser.add_argument_group("General arguments")
     gen_group.add_argument('-pj', '--print-json', action='store_true',
-                           help='If specied, it will cause also the JSON parameters '
-                           'to be printed out while listing table contents. '
+                           help='If specied, it will cause also the JSON '
+                           'parameters to be printed out while listing table '
+                           'contents.'
                            'If this flag is not specified, the JSON parameters '
                            'are ignored while printing.')
     gen_group.add_argument('-sj', '--structure', default=DB_STRUCTURE_JSON_PATH,
                            help='Path to databse structure description file'
-                                ' (defaults to ./structure.json)')
+                                ' (defaults to ./db_structure.json)')
     gen_group.add_argument('-c', '--config', default=DEF_CFG_PATH,
                            help='Path to configuration file'
-                                ' (defaults to ./cfg.json)')
+                                ' (defaults to ./data_unpack.json)')
 
     return parser
 
@@ -520,15 +528,14 @@ def main(parser: argparse.ArgumentParser) -> int:
     args = parser.parse_args()
 
     if not args.insert and not args.remove and not args.list:
-        print("ERROR: No command specified (what do you want to do?)!", file=sys.stderr)
+        print("ERROR: No action specified!", file=sys.stderr)
         print()
         parser.print_help()
         return 1
 
-    if not args.machine_learning and not args.dataset and not args.detection_model \
-            and not args.sensor and not args.sensor_type:
-
-        print("ERROR: No object type specified (what table do you want to modify?)!", file=sys.stderr)
+    if not args.machine_learning and not args.dataset and not  \
+            args.detection_model and not args.sensor and not args.sensor_type:
+        print("ERROR: No object type specified!", file=sys.stderr)
         print()
         parser.print_help()
         return 1
@@ -569,7 +576,7 @@ def main(parser: argparse.ArgumentParser) -> int:
         print(f"ERROR: No entry for table in structure file!")
         return 1
 
-    dataBase = mysql.connector.connect(
+    database = mysql.connector.connect(
         host=db_cfg['db_host'],
         user=db_cfg['db_user'],
         passwd=db_cfg['db_pass'],
@@ -577,15 +584,15 @@ def main(parser: argparse.ArgumentParser) -> int:
         database=db_cfg['db_name']
     )
 
-    db_cursor = dataBase.cursor()
+    db_cursor = database.cursor()
     retval = 0
 
     if args.insert:
-        retval = add_entry(dataBase, table_struct, tab_key,
+        retval = add_entry(database, table_struct, tab_key,
                            db_cursor, args.print_json)
 
     elif args.remove:
-        retval = remove_entry(dataBase, table_struct, tab_key,
+        retval = remove_entry(database, table_struct, tab_key,
                               db_cursor, args.print_json)
 
     elif args.list:
@@ -597,7 +604,7 @@ def main(parser: argparse.ArgumentParser) -> int:
         print(f"ERROR: No command specified!")
         return 1
 
-    dataBase.close()
+    database.close()
 
     return retval
 

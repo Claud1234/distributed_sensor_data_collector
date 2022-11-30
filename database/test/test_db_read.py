@@ -10,7 +10,7 @@ import os
 
 from utils.visualize import visualize
 
-DEF_CFG_PATH = './cfg.json'
+DEF_CFG_PATH = './data_unpack.json'
 
 def parse_multipoint(mp_str: str) -> tuple:
     output = []
@@ -76,7 +76,7 @@ def arg_parser() -> argparse:
     parser.add_argument('-l', '--limit', default=10,
                         help='Number of results to receive (default: 10)')
     parser.add_argument('-c', '--config', default=DEF_CFG_PATH,
-                        help='Path to configuration file (defaults to ./cfg.json)')
+                        help='Path to configuration file (defaults to ./data_unpack.json)')
     parser.add_argument('-d', '--dir',
                         help='Path to raw data (image and radar files)')
 

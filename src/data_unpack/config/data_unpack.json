@@ -7,5 +7,11 @@
         "db_port": 3306,
         "db_host": "172.17.0.1"
     },
-    "data_path": "~/finest_data"
+    "data_path": "~/finest_data",
+    "live_topics":
+    ["/velodyne_points",
+     "/grasshopper3/image_color_rect/compressed",
+     "/pycam/camera/image_raw/compressed"
+     ]
+
 }

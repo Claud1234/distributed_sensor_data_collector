@@ -3,7 +3,9 @@
 This is the database and dataset for Finest Pilot project. 
 
 ## Database 
-The database was dumped in docker. Please make sure you have the docker compose installed in your system. It is recommended here to install the docker compose through the repository instead of downloading the binary. Check docker compose with 
+The database was dumped in docker. Please make sure you have the docker compose installed in your system. 
+It is recommended here to install the docker compose through the repository instead of downloading the binary. 
+Check docker compose with 
 
 ```
 docker compose version
@@ -24,18 +26,63 @@ docker compose down
 ```
 
 
-##Rosbag Unpack
+## Data Unpack
 Unpacks the rosbag containing camera images and radar point clouds file into separate 
 frames, serializes radar data into JSON format, and (optionally) stores them into a database.
 
-###Dependencies 
+### Dependencies 
 It is recommended to use the python3 for executing the scripts. Install the python modules
 
 ```
 pip3 install mysql mysql-connector Pillow argparse progressbar2 opencv-python pyyaml numpy dataclasses pycryptodomex gnupg rospkg 
 ```
 
-###Usage
+### Usage
+If it is the new-deployed dataset, the first step is define the 'sensor_type' and 
+'sensor' fields in database. Please noted that these things will be saved in 
+database permanently until deleting the whole docker volume.
+
+The 'manage_models_sensors.py' is the script to input the sensors and models into 
+database. It contains the flags
+              
+| Command              | Short Command | Desrciption                                                                                                   |
+|----------------------|---------------|---------------------------------------------------------------------------------------------------------------
+| `--insert`           | `-i`          | Insert objects into database.                                                                                 |
+| `--remove`           | `-r`          | Remove the objects from database                                                                              
+| `--list`             | `-l`          | List the objects in database                                                                                  |
+| `--machine-learning` | `-ml`         |                                                             |
+| `--dataset`          | `-ow`         |  |
+| `--detection-model`  | `-p`          |                                                                                           |
+| `--sensor-type`      | `-st`         |  Input the sensor types in database
+| `--sensor`           | `-s`          |  Input the sensors in dataset
+
+The fist step is adding the types of the sensors into the database.
+In our case, there are three types 'lidar' 'radar', and 'camera'.
+The example to add the sensor type
+
+```
+python3 manage_models_sensors.py -i -st
+```
+
+A unique ID will be assigned to each 'sensor_type', then add the 'sensor' with
+corresponding 'sensor_type'. We have one Velodyne VLP-32C LiDAD, one FLIR 
+Grasshopper3 camera, one raspi camera, and two TI mmwave awr1843 radars.
+The example to add the sensor
+```
+python3 manage_models_sensors.py -i -s
+```
+After input the 'name' field, there is a need to specify the sensor type ID 
+and the topic names.  
+
+Please note that database will only store the data from the topics specified 
+here, other ROS topics will be ignored. 
+ 
+
+
+
+
+
+
 
 | Command       | Short Command | Desrciption                                                                                                                                                                                      |
 | ------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

@@ -20,7 +20,7 @@ ML_MODEL_DICT = {
 IMAGE_EXT = '.jpg'
 RADAR_EXT = '_radar_*.json'
 
-DEF_CFG_PATH = './cfg.json'
+DEF_CFG_PATH = './data_unpack.json'
 
 
 def arg_parser() -> argparse:
@@ -44,7 +44,7 @@ def arg_parser() -> argparse:
     parser.add_argument('-v', '--video', 
                         help='Save output as video (cannot be used together with the --preview option)')
     parser.add_argument('-c', '--config', default=DEF_CFG_PATH,
-                        help='Path to configuration file (defaults to ./cfg.json)')
+                        help='Path to configuration file (defaults to ./data_unpack.json)')
 
     args = parser.parse_args()
     return args
