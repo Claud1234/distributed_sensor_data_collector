@@ -1,25 +1,21 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 
-import argparse
-import json
 import os
-import shutil
 import sys
+import time
+import json
+import shutil
+import argparse
 from pathlib import Path
 
 from src.camera import Camera
 from src.db import DBHandler
-from src.rosbag_parser import RosbagParser
+from src.data_process import BagParsing
+from src.data_process import LiveParsing
+
 
 DEF_FPS = 10
 DEF_CFG_PATH = 'config/data_unpack.json'
-
-# Parameters for camera-radar fusion
-# TODO: This should not be hardcoded.
-CAMERA_GROUND_HEIGHT = -1.0
-CAMERA_ANGLE = 3
-CAMERA_CALIBRATION_SIZE = 0.036
-CAMERA_CALIB_DATA = 'src/calib.yaml'
 
 
 def read_cfg(cfg_path: str) -> dict:
@@ -46,12 +42,34 @@ def read_cfg(cfg_path: str) -> dict:
     return cfg
 
 
-def get_output_folder(bag_file: str, output: str, overwrite: bool) -> list:
+def topic_check(check_topics, db_topics):
     """
-    Creates an output folder for saving data
+    Check and filter out topics which are not specified in database.
 
     Args:
-        bag_file (str): Path to the bag file that is being processed
+    check_topics (str): List of the topics need to be checked.
+    db_topics (str): List of the topics specified in database.
+
+    Returns:
+    valid_topics(str): topics pass the string checking.
+    """
+    valid_topics = dict()
+    for sensor in db_topics.keys():
+        tmp_topics = []
+        for topic in db_topics[sensor]:
+            if topic in check_topics:
+                tmp_topics.append(topic)
+
+        if len(tmp_topics) > 0:
+            valid_topics[sensor] = tmp_topics
+    return valid_topics
+
+
+def get_output_folder(folder_name: str, output: str, overwrite: bool) -> list:
+    """
+    Creates an output folder for saving data
+    Args:
+        folder_name (str): The name of the folder.
         output (str): Path to the top level output directory
         overwrite (bool): Should the output directory be emptied (overwritten)
                           if it exists
@@ -62,8 +80,7 @@ def get_output_folder(bag_file: str, output: str, overwrite: bool) -> list:
     Returns:
         list(str, str): (path to the output folder, rosbag name)
     """
-    bag_name = Path(bag_file).stem
-    output_folder = os.path.join(output, bag_name)
+    output_folder = os.path.join(output, folder_name)
     folder_exists = os.path.exists(output_folder)
 
     if folder_exists:
@@ -71,12 +88,12 @@ def get_output_folder(bag_file: str, output: str, overwrite: bool) -> list:
             shutil.rmtree(output_folder)
             folder_exists = False
         else:
-            raise RuntimeError("Folder already exists!")
+            raise RuntimeError("Folder already exists! Use '-ow' to overwrite")
 
     if not folder_exists:
         os.makedirs(output_folder)
 
-    return output_folder, bag_name
+    return output_folder, folder_name
 
 
 def arg_parser() -> argparse.Namespace:
@@ -135,61 +152,56 @@ def main(args: argparse.Namespace):
     # Read the topics in database, specified in 'sensor'.
     db = DBHandler(cfg.get('db', dict()))
     db_topics = db.get_sensor_topics()
-    # print(db_topics['lidar'])
-
-    topics_check = []
-    if args.mode == 'live':
-        print('live mode')
-        live_topics = cfg.get('live_topics')
-        topics_check = live_topics
-    elif args.mode == 'bag':
-        print('bag mode')
-        if args.bag is None:
-            raise RuntimeError('Please specify bag file for "bag unpack" mode!')
-        else:
-            bag_parser = RosbagParser(args)
-            bag_parser.read_topics()
-            bag_parser.print_topics()
-
-            bag_topics = bag_parser.get_topics()
-            topics_check = bag_topics
-
-    # Filter out topics, which are in rosbag and in the DB
-    valid_topics = dict()
-    for sensor in db_topics.keys():
-        tmp_topics = []
-        for topic in db_topics[sensor]:
-            if topic in topics_check:
-                tmp_topics.append(topic)
-
-        if len(tmp_topics) > 0:
-            valid_topics[sensor] = tmp_topics
 
     output_path = args.directory if args.directory is not None \
-                            else cfg.get('data_path', '')
+        else cfg.get('data_path', '')
     output_path = os.path.expanduser(output_path)
     if output_path == '':
         print("No output folder specified!", file=sys.stderr)
         exit(1)
 
-    # TODO: Here need to check the 'live' or 'bag' mode. 'bag' save as bag name,
-    # TODO: 'live' save as current wall time
-    try:
-        save_path, folder = get_output_folder(args.rosbag, output_path,
+    if args.mode == 'live':
+        # TODO: need to check whether topics in cfg really available in pipeline
+        print('live mode')
+        live_topics = cfg.get('live_topics')
+        valid_topics = topic_check(live_topics, db_topics)
+        folder_name = time.strftime("%Y-%d-%m-%H-%M-%S", time.localtime())
+        save_path, folder = get_output_folder(folder_name, output_path,
                                               args.overwrite)
-    except Exception as e:
-        print(f"Error creating output folder: {str(e)}")
-        exit(1)
-    print("Output folder created")
-        #
-        # # TODO: This should not be hardcoded.
-        # camera = Camera(CAMERA_GROUND_HEIGHT, CAMERA_ANGLE,
-        #                 CAMERA_CALIB_DATA, CAMERA_CALIBRATION_SIZE)
-        #
-        # # Process rosbag
-        # bag_parser = RosbagParser(args, db, save_path, folder,
-        #                           valid_topics=valid_topics)
-        # bag_parser.parse_rosbag(camera)
+        #LiveParsing()
+
+    elif args.mode == 'bag':
+        print('bag mode')
+        if args.bag is None:
+            raise RuntimeError('Please specify bag file for "bag unpack" mode!')
+        else:
+            bag_topics = BagParsing(args).read_topics()
+            valid_topics = topic_check(bag_topics, db_topics)
+            folder_name = Path(args.bag).stem
+            save_path, folder = get_output_folder(folder_name, output_path,
+                                                  args.overwrite)
+            BagParsing(args, cfg, db, save_path,
+                        folder, valid_topics).parse_rosbag()
+    else:
+        exit()
+
+
+
+
+
+    # raspi_cfg = cfg.get('raspi', dict())
+    # camera = Camera(raspi_cfg['raspi_ground_height'],
+    #                 raspi_cfg['raspi_angle'],
+    #                 raspi_cfg['raspi_calib_intri'],
+    #                 raspi_cfg['raspi_calibration_size'])
+    # print(camera)
+    # print(valid_topics)
+    #DataProcess(args, cfg, db, save_path, folder, valid_topics).save_to_db()
+
+    # Process rosbag
+    # bag_parser = RosbagParser(args, db, save_path, folder,
+    #                           valid_topics=valid_topics)
+    # bag_parser.parse_rosbag(camera)
 
     db.close()
 

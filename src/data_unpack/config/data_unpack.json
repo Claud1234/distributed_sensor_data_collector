@@ -1,13 +1,23 @@
 {
     "db":
     {
-        "db_user": "db_user",
-        "db_pass": "transport123",
-        "db_name": "transport_ecosystem_management_db",
-        "db_port": 3306,
-        "db_host": "172.17.0.1"
+      "db_user": "db_user",
+      "db_pass": "transport123",
+      "db_name": "transport_ecosystem_management_db",
+      "db_port": 3306,
+      "db_host": "172.17.0.1"
     },
+
     "data_path": "~/finest_data",
+
+    "raspi":
+    {
+      "raspi_ground_height": -1.0,
+      "raspi_angle": 3,
+      "raspi_calibration_size": 0.036,
+      "raspi_calib_intri": "config/raspi_intri.yaml"
+    },
+
     "live_topics":
     ["/velodyne_points",
      "/grasshopper3/image_color_rect/compressed",

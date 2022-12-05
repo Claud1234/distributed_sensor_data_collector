@@ -1,5 +1,6 @@
+#!/bin/env python3
 """
-Contains functions which are needed for point projection and image undistoration
+Contains functions which are needed for point projection and image undistorted
 """
 import yaml
 import numpy as np
@@ -26,12 +27,14 @@ class Point3D:
 
     def __init__(self, array: np.array):
         if len(array) != 3:
-            raise ValueError(f"Cannot convert from array of size {len(array)} to Point3D!")
+            raise ValueError(f"Cannot convert from array of size {len(array)} "
+                             f"to Point3D!")
 
         self.x, self.y, self.z = array
 
     def to_numpy(self) -> np.array:
         return np.array([self.x, self.y, self.z])
+
 
 @dataclass
 class Point2D:
@@ -40,7 +43,8 @@ class Point2D:
 
     def __init__(self, array: np.array):
         if len(array) != 2:
-            raise ValueError(f"Cannot convert from array of size {len(array)} to Point2D!")
+            raise ValueError(f"Cannot convert from array of size {len(array)} "
+                             f"to Point2D!")
 
         self.x, self.y = array
 
@@ -58,6 +62,7 @@ class RadarPoint:
     velocity: float
     distance: float
 
+
 class Camera:
 
     def __init__(self, camera_altitude: float, device_angle: float,
@@ -66,11 +71,12 @@ class Camera:
         Class containing functions for camera calibration
         Parameters
         ----------
-        dim: tuple containing the size of the frame
-        camera_altitude: height of the device from ground during mounting (in meters)
+        camera_altitude: height of the device from ground during mounting
+                         (in meters)
         device_angle: Mounting angle of the device, in degrees
         calib_file: Path to the YAML file containing the calibration data
-        checkerboard_square_size: Square size of the checkerboard that was used for camera calibration
+        checkerboard_square_size: Square size of the checkerboard that was used
+                                  for camera calibration
         """
 
         self.dim = None
@@ -91,9 +97,11 @@ class Camera:
         self.checkerboard_square_size = checkerboard_square_size
 
         # Altitude of the camera
-        self.camera_altitude = camera_altitude - CAMERA_OFFSET  # RAISES camera by one meter for better radar mapping
+        self.camera_altitude = camera_altitude - CAMERA_OFFSET
+        # RAISES camera by one meter for better radar mapping
 
-        # Translation matrix. Set it to zeroes, we will do point translation manually
+        # Translation matrix.
+        # Set it to zeroes, will do point translation manually
         self.T = np.array([0.0, 0.0, 0.0])
 
         # Change coordinate system to camera's coordinates
@@ -107,11 +115,14 @@ class Camera:
                                    self.checkerboard_square_size])  # Z
 
         # Initialize undistort
-        self.new_K, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D, self.dim, 1, self.dim)
+        self.new_K, roi = cv2.getOptimalNewCameraMatrix(self.K, self.D,
+                                                        self.dim, 1, self.dim)
 
         # Generate undistort maps
-        self.undistort_mapx, self.undistort_mapy = cv2.initUndistortRectifyMap(self.K, self.D, None,
-                                                                               self.new_K, self.dim, 5)
+        self.undistort_mapx, \
+            self.undistort_mapy = cv2.initUndistortRectifyMap(self.K, self.D,
+                                                              None, self.new_K,
+                                                              self.dim, 5)
 
         # Cropping rectangle
         self.crop_rect = self._calculate_crop_rect_from_roi(roi)
@@ -123,16 +134,21 @@ class Camera:
 
         # Rotational matrices of each coordinate
         xr = np.array([[1.0, 0.0, 0.0],
-                       [0.0, cos(radians(x_rot_angle)), -sin(radians(x_rot_angle))],
-                       [0.0, sin(radians(x_rot_angle)), cos(radians(x_rot_angle))]])
+                       [0.0, cos(radians(x_rot_angle)),
+                       -sin(radians(x_rot_angle))],
+                       [0.0, sin(radians(x_rot_angle)),
+                       cos(radians(x_rot_angle))]])
 
-        yr = np.array([[cos(radians(y_rot_angle)), -sin(radians(y_rot_angle)), 0.0],
-                       [sin(radians(y_rot_angle)), cos(radians(y_rot_angle)), 0.0],
+        yr = np.array([[cos(radians(y_rot_angle)),
+                      -sin(radians(y_rot_angle)), 0.0],
+                       [sin(radians(y_rot_angle)),
+                       cos(radians(y_rot_angle)), 0.0],
                        [0.0, 0.0, 1.0]])
 
-        zr = np.array([[cos(radians(z_rot_angle)), 0.0, sin(radians(z_rot_angle))],
-                       [0.0, 1.0, 0.0],
-                       [-sin(radians(z_rot_angle)), 0.0, cos(radians(z_rot_angle))]])
+        zr = np.array([[cos(radians(z_rot_angle)), 0.0,
+                       sin(radians(z_rot_angle))],
+                       [0.0, 1.0, 0.0], [-sin(radians(z_rot_angle)), 0.0,
+                       cos(radians(z_rot_angle))]])
 
         # Final rotational matrix
         self.R = np.dot(np.dot(zr, yr), xr)
@@ -174,17 +190,20 @@ class Camera:
             # Camera matrix
             rows = calib_data['camera_matrix']['rows']
             cols = calib_data['camera_matrix']['cols']
-            self.K = np.array(calib_data['camera_matrix']['data']).reshape((rows, cols))
+            self.K = np.array(
+                    calib_data['camera_matrix']['data']).reshape((rows, cols))
 
             # Distortion vector
             rows = calib_data['distortion_coefficients']['rows']
             cols = calib_data['distortion_coefficients']['cols']
-            self.D = np.array(calib_data['distortion_coefficients']['data']).reshape((rows, cols))
+            self.D = np.array(
+                calib_data['distortion_coefficients']['data']).reshape((rows, cols))
 
             # Projection matrix
             rows = calib_data['projection_matrix']['rows']
             cols = calib_data['projection_matrix']['cols']
-            self.P = np.array(calib_data['projection_matrix']['data']).reshape((rows, cols))
+            self.P = np.array(
+                calib_data['projection_matrix']['data']).reshape((rows, cols))
 
         if self.K is None or self.D is None or self.P is None:
             raise RuntimeError("Reading calibration data failed!")
@@ -231,7 +250,8 @@ class Camera:
         Undistored frame
         """
 
-        undistorted_frame = cv2.remap(frame, self.undistort_mapx, self.undistort_mapy, cv2.INTER_LINEAR)
+        undistorted_frame = cv2.remap(frame, self.undistort_mapx,
+                                      self.undistort_mapy, cv2.INTER_LINEAR)
 
         return undistorted_frame
 
@@ -298,8 +318,8 @@ class Camera:
 
     def crit_infra_project_lines(self, lines: list) -> list:
         """
-        Wrapper around OpenCV's projectPoints function that works out of the box for lines
-        with critical infrastructure sensor
+        Wrapper around OpenCV's projectPoints function that works out of the
+        box for lines with critical infrastructure sensor
         Parameters
         ----------
         lines: Lines to project
@@ -312,11 +332,13 @@ class Camera:
         projected_lines = []
 
         for line in lines:
-            imgpts, _ = cv2.projectPoints(line, self.R, self.T, self.new_K, self.new_D)
+            imgpts, _ = cv2.projectPoints(line, self.R, self.T,
+                                          self.new_K, self.new_D)
             projected_lines.append(imgpts)
         return projected_lines
 
-    def draw_grid(self, img: np.array, x_min: int, y_min: int, x_max: int, y_max: int,
+    def draw_grid(self, img: np.array, x_min: int, y_min: int,
+                  x_max: int, y_max: int,
                   x_step: int, y_step: int, disable_cropping: bool) -> np.array:
         """
         Projects a grid on the image with selected properties
@@ -338,48 +360,58 @@ class Camera:
         # Draw X grid
         x_coords = np.arange(x_min, x_max + 1, x_step)
         for x in x_coords:
-            p1_coords = self.transform_coordinates(Point3D(np.array([x, y_min, 0])))
+            p1_coords = self.transform_coordinates(Point3D(np.array([x,
+                                                                    y_min, 0])))
             p1 = self.crit_infra_project_point(p1_coords)
 
-            p2_coords = self.transform_coordinates(Point3D(np.array([x, y_max, 0])))
+            p2_coords = self.transform_coordinates(Point3D(np.array([x,
+                                                                    y_max, 0])))
             p2 = self.crit_infra_project_point(p2_coords)
 
             if not disable_cropping:
                 p1 = self.calculate_new_point_for_cropping(p1)
                 p2 = self.calculate_new_point_for_cropping(p2)
 
-            img = cv2.line(img, p1.to_tuple(), p2.to_tuple(), (0, 255, 255), thickness=3)
+            img = cv2.line(img, p1.to_tuple(), p2.to_tuple(),
+                           (0, 255, 255), thickness=3)
 
         # Draw Y grid
         y_coords = np.arange(y_min, y_max + 1, y_step)
         for y in y_coords:
-            p1_coords = self.transform_coordinates(Point3D(np.array([x_min, y, 0])))
+            p1_coords = self.transform_coordinates(Point3D(np.array([x_min,
+                                                                    y, 0])))
             p1 = self.crit_infra_project_point(p1_coords)
 
-            p2_coords = self.transform_coordinates(Point3D(np.array([x_max, y, 0])))
+            p2_coords = self.transform_coordinates(Point3D(np.array([x_max,
+                                                                    y, 0])))
             p2 = self.crit_infra_project_point(p2_coords)
 
             if not disable_cropping:
                 p1 = self.calculate_new_point_for_cropping(p1)
                 p2 = self.calculate_new_point_for_cropping(p2)
 
-            img = cv2.line(img, p1.to_tuple(), p2.to_tuple(), (0, 255, 255), thickness=3)
+            img = cv2.line(img, p1.to_tuple(), p2.to_tuple(),
+                            (0, 255, 255), thickness=3)
 
         return img
 
     def get_cropped_video_dimensions(self) -> np.array:
         """
-        Returns the dimensions of the video after cropping. Does NOT perform the cropping, just return the size
+        Returns the dimensions of the video after cropping. Does NOT perform the
+        cropping, just return the size
         Returns
         -------
-        A tuple in the format (x, y), where x and y are the size of the cropped video in pixels
+        A tuple in the format (x, y), where x and y are the size of the cropped
+        video in pixels
         """
 
-        return self.crop_rect.x_max - self.crop_rect.x_min, self.crop_rect.y_max - self.crop_rect.y_min
+        return self.crop_rect.x_max - self.crop_rect.x_min, \
+            self.crop_rect.y_max - self.crop_rect.y_min
 
     def is_point_in_crop_box(self, point: Point2D) -> bool:
         """
-        Checks if a point on a screen is inside the crop box. (Will be visible after cropping the frame)
+        Checks if a point on a screen is inside the crop box. (Will be visible
+        after cropping the frame)
         Parameters
         ----------
         point: Two dimensional point on the screen
@@ -394,8 +426,9 @@ class Camera:
 
     def calculate_new_point_for_cropping(self, points: np.array) -> np.array:
         """
-        Compensates points' coordinates for image cropping by subtracting the coordinates of the upper left corner
-        of the cropping rectangle from the points' coordinates
+        Compensates points' coordinates for image cropping by subtracting the
+        coordinates of the upper left corner of the cropping rectangle from the
+        points' coordinates
         Parameters
         ----------
         points: Points with coordinates on the image
@@ -429,7 +462,8 @@ class Camera:
         -------
         Cropped frame
         """
-        return frame[self.crop_rect.y_min:self.crop_rect.y_max, self.crop_rect.x_min:self.crop_rect.x_max]
+        return frame[self.crop_rect.y_min:self.crop_rect.y_max,
+                     self.crop_rect.x_min:self.crop_rect.x_max]
 
     def transform_coordinates(self, point_in_m: Point3D) -> Point3D:
         """

@@ -1,10 +1,11 @@
 from itertools import chain
 from dataclasses import dataclass
 
+
 @dataclass
 class LastFrame:
     """
-    Object for storing storing received data.
+    Object for storing received data.
     """
     frame_counter: 0
     timestamp: None
