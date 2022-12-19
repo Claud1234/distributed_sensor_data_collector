@@ -18,10 +18,16 @@
       "raspi_calib_intri": "config/raspi_intri.yaml"
     },
 
+    "image_topic": "/image_color_rect/compressed",
+    "lidar_topic": "/velodyne_packets",
+    "radar_1_topic": "/ti_mmwave/radar_scan_pcl_1",
+    "radar_2_topic": "/ti_mmwave/radar_scan_pcl_2",
+
     "live_topics":
     ["/velodyne_points",
      "/grasshopper3/image_color_rect/compressed",
-     "/pycam/camera/image_raw/compressed"
+     "/pycam/camera/image_raw/compressed",
+     "/ti_mmwave/radar_scan_pcl_1"
      ]
 
 }
