@@ -127,13 +127,14 @@ class DBHandler():
             self.database.rollback()
 
         frame_id = self.cursor.getlastrowid()
+        #print(frame_id)
 
         # Store frame_sensor table entries
         for sensor in sensor_data:
             topic = sensor.get('topic', None)
-            if topic is None:
-                print("Warning: sensor without topic detected!")
-                continue
+            # if topic is None:
+            #     print("Warning: sensor without topic detected!")
+            #     continue
 
             s_file = sensor.get('file', None)
             s_data = sensor.get('data', None)
@@ -150,6 +151,8 @@ class DBHandler():
             sql = "INSERT INTO frame_sensor (frame_id, sensor_id, file_name, sensor_data) " \
                   "VALUES (%s, %s, %s, %s)"
             val = (frame_id, sensor_id, s_file, s_data)
+
+            #print(sql, val)
 
             try:
                 self.cursor.execute(sql, val)

@@ -10,7 +10,7 @@ import os
 
 from utils.visualize import visualize
 
-DEF_CFG_PATH = './data_unpack.json'
+DEF_CFG_PATH = '../../src/data_unpack/config/data_unpack.json'
 
 def parse_multipoint(mp_str: str) -> tuple:
     output = []

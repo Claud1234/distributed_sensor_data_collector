@@ -94,6 +94,11 @@ here, other ROS topics will be ignored.
 | `--progress`  | `-p`          | Display progress bar                                                                                                                                                                             |
 
 ## Object Detector
-
 Reads images and radar files, performs machine learning on the images and stores 
 data in the database
+
+### Dependencies
+
+```
+pip3 install "tensorflow>=2.5" "cryptography>=2.5" "greenlet>=0.3" "python-dateutil<3.0.0" "cffi>=1.1" "SQLAlchemy>=1.3.0" keras natsort tensorflow-hub matplotli imutils pandas tqdm scikit-learn seaborn psycopg2
+```

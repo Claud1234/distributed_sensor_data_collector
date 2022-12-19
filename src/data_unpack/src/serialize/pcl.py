@@ -68,7 +68,6 @@ class PointCloud:
         
         self.pcl_obj['points'] = points
 
-
     def _project_point(self, camera, point):
         """
         Extracts all points in the cluster

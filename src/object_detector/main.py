@@ -20,7 +20,7 @@ ML_MODEL_DICT = {
 IMAGE_EXT = '.jpg'
 RADAR_EXT = '_radar_*.json'
 
-DEF_CFG_PATH = './data_unpack.json'
+DEF_CFG_PATH = '../data_unpack/config/data_unpack.json'
 
 
 def arg_parser() -> argparse:

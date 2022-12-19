@@ -165,6 +165,7 @@ def main(args: argparse.Namespace):
         print('live mode')
         live_topics = cfg.get('live_topics')
         valid_topics = topic_check(live_topics, db_topics)
+        print(valid_topics)
         folder_name = time.strftime("%Y-%d-%m-%H-%M-%S", time.localtime())
         save_path, folder = get_output_folder(folder_name, output_path,
                                               args.overwrite)
@@ -180,8 +181,12 @@ def main(args: argparse.Namespace):
             folder_name = Path(args.bag).stem
             save_path, folder = get_output_folder(folder_name, output_path,
                                                   args.overwrite)
+            print(valid_topics.get('radar')[0])
+
+        
+            # print(valid_topics.values())
             BagParsing(args, cfg, db, save_path,
-                        folder, valid_topics).parse_rosbag()
+                       folder, valid_topics).parse_rosbag()
     else:
         exit()
 
