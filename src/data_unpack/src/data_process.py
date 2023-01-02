@@ -129,6 +129,7 @@ class BagParsing(object):
                     valid_topic_list = list(itertools.chain.from_iterable(
                                             list(self.valid_topics.values())))
                     if self.last_frame_msg.has_enough_data(valid_topic_list):
+
                         # Save the frame data
                         frame_info = process_frame(self.cfg,
                                                    self.raspi_cam_r_matrix,

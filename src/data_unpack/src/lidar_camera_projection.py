@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-CALIB_FILE_PATH = 'config/calib.txt'
+CALIB_FILE_PATH = 'config/lidar_cam_calib.txt'
 
 
 def lidar_projection(img_array, pts_lidar, pkl_path, png_path):
@@ -74,7 +74,7 @@ def render_lidar_on_image(pts_lidar, rgb, calib, pkl_path):
         color = cmap[int(640.0 / depth), :]
         cv2.circle(rgb, (int(np.round(imgfov_pc_pixel[0, i])),
                          int(np.round(imgfov_pc_pixel[1, i]))),
-                   2, color=tuple(color), thickness=5)
+                   2, color=tuple(color), thickness=2)
     return rgb
 
 
