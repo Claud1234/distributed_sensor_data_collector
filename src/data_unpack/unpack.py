@@ -11,7 +11,7 @@ from pathlib import Path
 from src.camera import Camera
 from src.db import DBHandler
 from src.data_process import BagParsing
-from src.data_process import LiveParsing
+# from src.data_process import LiveParsing
 
 
 DEF_FPS = 10
@@ -160,16 +160,16 @@ def main(args: argparse.Namespace):
         print("No output folder specified!", file=sys.stderr)
         exit(1)
 
-    if args.mode == 'live':
-        # TODO: need to check whether topics in cfg really available in pipeline
-        print('live mode')
-        live_topics = cfg.get('live_topics')
-        valid_topics = topic_check(live_topics, db_topics)
-        print(valid_topics)
-        folder_name = time.strftime("%Y-%d-%m-%H-%M-%S", time.localtime())
-        save_path, folder = get_output_folder(folder_name, output_path,
-                                              args.overwrite)
-        #LiveParsing()
+    # if args.mode == 'live':
+    #   # TODO: need to check whether topics in cfg really available in pipeline
+    #     print('live mode')
+    #     live_topics = cfg.get('live_topics')
+    #     valid_topics = topic_check(live_topics, db_topics)
+    #     print(valid_topics)
+    #     folder_name = time.strftime("%Y-%d-%m-%H-%M-%S", time.localtime())
+    #     save_path, folder = get_output_folder(folder_name, output_path,
+    #                                           args.overwrite)
+    #     #LiveParsing()
 
     elif args.mode == 'bag':
         print('bag mode')
@@ -181,12 +181,14 @@ def main(args: argparse.Namespace):
             folder_name = Path(args.bag).stem
             save_path, folder = get_output_folder(folder_name, output_path,
                                                   args.overwrite)
-            print(valid_topics.get('radar')[0])
+            #print(save_path, folder)
+            #print(valid_topics.get('radar')[0])
 
-        
-            # print(valid_topics.values())
+            #print(cfg.get('radar_2_topic'))
+            #print(valid_topics)
+            #print(bag_topics)
             BagParsing(args, cfg, db, save_path,
-                       folder, valid_topics).parse_rosbag()
+                        folder, valid_topics).parse_rosbag()
     else:
         exit()
 
