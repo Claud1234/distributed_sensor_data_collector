@@ -107,16 +107,16 @@ class BagParsing(object):
         np_nsec_radar2 = np.asarray(
             [msg.timestamp.to_nsec() for msg in radar2_msg_gen])
 
-        np_ts_match_lc = np.zeros((len(np_nsec_lidar), len(np_nsec_cam)),
+        np_ts_match_lc = np.zeros((len(np_nsec_cam), len(np_nsec_lidar)),
                                   np.int64)
         np_ts_match_r1l = np.zeros((len(np_nsec_lidar), len(np_nsec_radar1)),
                                    np.int64)
         np_ts_match_r2l = np.zeros((len(np_nsec_lidar), len(np_nsec_radar2)),
                                    np.int64)
 
-        for i, tl in enumerate(np_nsec_lidar):
-            for j, tc in enumerate(np_nsec_cam):
-                np_ts_match_lc[i, j] = tl - tc
+        for i, tc in enumerate(np_nsec_cam):
+            for j, tl in enumerate(np_nsec_lidar):
+                np_ts_match_lc[i, j] = tc - tl
         for i, tl in enumerate(np_nsec_lidar):
             for j, tr0 in enumerate(np_nsec_radar1):
                 np_ts_match_r1l[i, j] = tl - tr0
@@ -128,8 +128,8 @@ class BagParsing(object):
         np_ts_match_r2l = np.abs(np_ts_match_r2l)
 
         df_seq_match_lc = \
-            pd.DataFrame(dict(list(zip(['cam', 'lidar'], np.vstack(
-                [np.arange(np_nsec_cam.shape[0]),
+            pd.DataFrame(dict(list(zip(['lidar', 'cam'], np.vstack(
+                [np.arange(np_nsec_lidar.shape[0]),
                  np.argmin(np_ts_match_lc.T, axis=1)])))))
         df_seq_match_lc.to_csv(self.save_path+'/lidar-to-cam-seq-sync.csv',
                                 index=False)
