@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 
 import os
+import cv2
+import pickle
 import sys
 import time
 import json
 import shutil
 import argparse
+import progressbar
+import pandas as pd
 from pathlib import Path
 
 from src.camera import Camera
 from src.db import DBHandler
 from src.data_process import BagParsing
+from src.lidar_camera_projection import lidar_projection
 # from src.data_process import LiveParsing
 
 
@@ -83,12 +88,12 @@ def get_output_folder(folder_name: str, output: str, overwrite: bool) -> list:
     output_folder = os.path.join(output, folder_name)
     folder_exists = os.path.exists(output_folder)
 
-    if folder_exists:
-        if overwrite:
-            shutil.rmtree(output_folder)
-            folder_exists = False
-        else:
-            raise RuntimeError("Folder already exists! Use '-ow' to overwrite")
+    # if folder_exists:
+    #     if overwrite:
+    #         shutil.rmtree(output_folder)
+    #         folder_exists = False
+    #     else:
+    #         raise RuntimeError("Folder already exists! Use '-ow' to overwrite")
 
     if not folder_exists:
         os.makedirs(output_folder)
@@ -139,7 +144,6 @@ def main(args: argparse.Namespace):
     Args:
         args argparse.Namespace: Arguments parsed by argparse
     """
-
     # Read config file
     cfg_path = os.path.abspath(os.path.expanduser(args.config))
     print(f"Using config file: {cfg_path}")
@@ -160,18 +164,7 @@ def main(args: argparse.Namespace):
         print("No output folder specified!", file=sys.stderr)
         exit(1)
 
-    # if args.mode == 'live':
-    #   # TODO: need to check whether topics in cfg really available in pipeline
-    #     print('live mode')
-    #     live_topics = cfg.get('live_topics')
-    #     valid_topics = topic_check(live_topics, db_topics)
-    #     print(valid_topics)
-    #     folder_name = time.strftime("%Y-%d-%m-%H-%M-%S", time.localtime())
-    #     save_path, folder = get_output_folder(folder_name, output_path,
-    #                                           args.overwrite)
-    #     #LiveParsing()
-
-    elif args.mode == 'bag':
+    if args.mode == 'bag':
         print('bag mode')
         if args.bag is None:
             raise RuntimeError('Please specify bag file for "bag unpack" mode!')
@@ -183,12 +176,81 @@ def main(args: argparse.Namespace):
                                                   args.overwrite)
             #print(save_path, folder)
             #print(valid_topics.get('radar')[0])
-
             #print(cfg.get('radar_2_topic'))
             #print(valid_topics)
             #print(bag_topics)
             BagParsing(args, cfg, db, save_path,
                         folder, valid_topics).parse_rosbag()
+
+            proj_img_dir = os.path.join(save_path, 'proj_img')
+            proj_pkl_dir = os.path.join(save_path, 'proj_pkl')
+            for d in [proj_img_dir, proj_pkl_dir]:
+                if not os.path.exists(d):
+                    os.mkdir(d)
+            lc_csv_path = os.path.join(save_path, 'lidar-to-cam-seq-sync.csv')
+
+            if os.path.exists(lc_csv_path):
+                df_lidar_to_cam = pd.read_csv(lc_csv_path)
+
+            else:
+                RuntimeError("Lidar to camera seq sync file doesn't exist!")
+
+            bar_count = 0
+            if args.progress:
+                lidar_count = len(df_lidar_to_cam.lidar)
+                bar = progressbar.ProgressBar(
+                    max_value=lidar_count, prefix='Projecting lidar to camera: ',
+                    redirect_stdout=True)
+            lidar_seq = df_lidar_to_cam.lidar.values
+            for seq in lidar_seq:
+                cam_seq = df_lidar_to_cam.set_index('lidar').loc[
+                    [seq]].values.reshape(-1)
+                for sq in cam_seq:
+                    img = cv2.imread(
+                        os.path.join(save_path, 'camera', f'seq_{sq}_rgb.png'),
+                        cv2.IMREAD_UNCHANGED)
+                with open(
+                        os.path.join(save_path, 'lidar', f'seq_{seq}_lidar.pkl'), 'rb') as f:
+                    lidar_points = pickle.load(f)
+                img_out = os.path.join(proj_img_dir,
+                                       f'./lidar_{seq}_to_rgb_{cam_seq}.png')
+                pkl_out = os.path.join(proj_pkl_dir,
+                                       f'./lidar_{seq}_to_rgb_{cam_seq}.pkl')
+                lidar_projection(img, lidar_points, pkl_out, img_out)
+                if args.progress:
+                    bar_count += 1
+                    bar.update(bar_count)
+            if args.progress:
+                bar.finish()
+
+            proj_radar1_lidar_img_dir =\
+                os.path.join(save_path, 'proj_radar1_lidar_img')
+            proj_radar1_lidar_pkl_dir =\
+                os.path.join(save_path, 'proj_radar1_lidar_pkl')
+            proj_radar2_lidar_img_dir = \
+                os.path.join(save_path, 'proj_radar2_lidar_img')
+            proj_radar2_lidar_pkl_dir = \
+                os.path.join(save_path, 'proj_radar2_lidar_pkl')
+
+            for dir_path in [proj_radar1_lidar_img_dir,
+                             proj_radar1_lidar_pkl_dir,
+                             proj_radar2_lidar_img_dir,
+                             proj_radar2_lidar_pkl_dir]:
+                if not os.path.exists(dir_path):
+                    print(f"Create dir: {dir_path}")
+                    os.mkdir(dir_path)
+            
+
+    # elif args.mode == 'live':
+    #   # TODO: need to check whether topics in cfg really available in pipeline
+    #     print('live mode')
+    #     live_topics = cfg.get('live_topics')
+    #     valid_topics = topic_check(live_topics, db_topics)
+    #     print(valid_topics)
+    #     folder_name = time.strftime("%Y-%d-%m-%H-%M-%S", time.localtime())
+    #     save_path, folder = get_output_folder(folder_name, output_path,
+    #                                           args.overwrite)
+    #     #LiveParsing()
     else:
         exit()
 
