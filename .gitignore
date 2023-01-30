@@ -6,6 +6,5 @@
 tem_db.sql.bak
 assets/yolov3.weights
 .pydevproject
-ipython
 data
 .ipynb_checkpoints
