@@ -223,23 +223,23 @@ def main(args: argparse.Namespace):
             if args.progress:
                 bar.finish()
 
-            proj_radar1_lidar_img_dir =\
-                os.path.join(save_path, 'proj_radar1_lidar_img')
-            proj_radar1_lidar_pkl_dir =\
-                os.path.join(save_path, 'proj_radar1_lidar_pkl')
-            proj_radar2_lidar_img_dir = \
-                os.path.join(save_path, 'proj_radar2_lidar_img')
-            proj_radar2_lidar_pkl_dir = \
-                os.path.join(save_path, 'proj_radar2_lidar_pkl')
-
-            for dir_path in [proj_radar1_lidar_img_dir,
-                             proj_radar1_lidar_pkl_dir,
-                             proj_radar2_lidar_img_dir,
-                             proj_radar2_lidar_pkl_dir]:
-                if not os.path.exists(dir_path):
-                    print(f"Create dir: {dir_path}")
-                    os.mkdir(dir_path)
-            
+            # proj_radar1_lidar_img_dir =\
+            #     os.path.join(save_path, 'proj_radar1_lidar_img')
+            # proj_radar1_lidar_pkl_dir =\
+            #     os.path.join(save_path, 'proj_radar1_lidar_pkl')
+            # proj_radar2_lidar_img_dir = \
+            #     os.path.join(save_path, 'proj_radar2_lidar_img')
+            # proj_radar2_lidar_pkl_dir = \
+            #     os.path.join(save_path, 'proj_radar2_lidar_pkl')
+            #
+            # for dir_path in [proj_radar1_lidar_img_dir,
+            #                  proj_radar1_lidar_pkl_dir,
+            #                  proj_radar2_lidar_img_dir,
+            #                  proj_radar2_lidar_pkl_dir]:
+            #     if not os.path.exists(dir_path):
+            #         print(f"Create dir: {dir_path}")
+            #         os.mkdir(dir_path)
+            #
 
     # elif args.mode == 'live':
     #   # TODO: need to check whether topics in cfg really available in pipeline
