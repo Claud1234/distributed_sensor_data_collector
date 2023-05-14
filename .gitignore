@@ -1,0 +1,10 @@
+*.pyc
+.project
+.idea
+.directory
+.catkin_tools/
+tem_db.sql.bak
+assets/yolov3.weights
+.pydevproject
+data
+.ipynb_checkpoints
