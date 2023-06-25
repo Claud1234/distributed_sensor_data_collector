@@ -70,12 +70,12 @@ def render_lidar_on_image(pts_lidar, rgb, calib, pkl_path):
     cmap = np.array([cmap(i) for i in range(2048)])[:, :3] * 2047
 
     for i in range(imgfov_pc_pixel.shape[1]):
-        #depth = imgfov_pc_cam2[2, i]
-        #color = cmap[int(2048.0 / depth), :]
-        color = (0,255,0)
+        depth = imgfov_pc_cam2[2, i]
+        color = cmap[int(640 / depth), :]
+        #color = (0,255,0)
         cv2.circle(rgb, (int(np.round(imgfov_pc_pixel[0, i])),
                          int(np.round(imgfov_pc_pixel[1, i]))),
-                   2, color=tuple(color), thickness=2)
+                   1, color=tuple(color), thickness=10)
     return rgb
 
 
@@ -132,3 +132,7 @@ def project_to_image(points, proj_mat):
     points[:2, :] /= points[2, :]
     return points[:2, :]
 
+
+# if __name__ == '__main__':
+#     calib = read_calib_file(CALIB_FILE_PATH)
+#     print(calib)
