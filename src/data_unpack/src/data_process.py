@@ -153,7 +153,7 @@ class BagParsing(object):
                                 index=False)
 
         df_seq_match_r2l = \
-            pd.DataFrame(dict(list(zip(['radar1', 'lidar'], np.vstack(
+            pd.DataFrame(dict(list(zip(['radar2', 'lidar'], np.vstack(
                 [np.arange(np_nsec_radar2.shape[0]),
                  np.argmin(np_ts_match_r2l.T, axis=1)])))))
         df_seq_match_r2l.to_csv(
