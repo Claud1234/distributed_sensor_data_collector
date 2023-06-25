@@ -9,15 +9,20 @@ import json
 import shutil
 import argparse
 import progressbar
+import numpy as np
 import pandas as pd
 from pathlib import Path
+from multiprocessing import Pool
 
 from src.camera import Camera
 from src.db import DBHandler
-from src.data_process import BagParsing
-from src.lidar_camera_projection import lidar_projection
+# from src.data_process import BagParsing
+from src.data_process_multi_core import BagParsing
+from src.lidar_camera_projection import lidar_projection, read_calib_file, \
+                                        render_lidar_on_image
 # from src.data_process import LiveParsing
 
+from src.radar_lidar_cam_fusion import loop_step
 
 DEF_FPS = 10
 DEF_CFG_PATH = 'config/data_unpack.json'
@@ -137,6 +142,43 @@ def arg_parser() -> argparse.Namespace:
     return args
 
 
+def radar_lidar_cam_fusion_multiproc(args):
+    radar_id, save_path, radar_seq, lidar_seq, cam_seq, proj_img, proj_pkl, \
+        radar_cam_calib, tr_radar_lidar, euclidean_thr = args
+    lidar_xyz, radar_xyz, radar_xyz_tr, lidar_radar_xyz, img = \
+            loop_step(radar_id, save_path, radar_seq, lidar_seq, cam_seq,
+                      tr_radar_lidar, euclidean_thr)
+
+    # plot_lidar_radar(lidar_radar_xyz, radar_xyz, radar_xyz_tr, f_plot_out)
+    # img_out = lidar_camera_projection.render_lidar_on_image(lidar_radar_xyz,
+    #                                                         img,
+    #                                                         lidar_cam_calib,
+    #                                                         f_pkl_out)
+    img_out = render_lidar_on_image(lidar_radar_xyz, img, radar_cam_calib,
+                                    proj_pkl)
+
+    cv2.imwrite(proj_img, img_out)
+
+
+def lidar_cam_proj_multiproc(args):
+    save_path, cam_seq, seq, proj_img_dir, proj_pkl_dir = args
+    img = cv2.imread(
+        os.path.join(save_path, 'camera', f'seq_{cam_seq}_rgb.png'),
+        cv2.IMREAD_UNCHANGED)
+    with open(
+            os.path.join(save_path, 'lidar', f'seq_{seq}_lidar.pkl'),
+            'rb') as f:
+        lidar_points = pickle.load(f)
+    img_out = os.path.join(proj_img_dir,
+                           f'./lidar_{seq}_to_rgb_{cam_seq}.png')
+    # Projected Lidar
+    pkl_out = os.path.join(proj_pkl_dir,
+                           f'./lidar_{seq}_to_rgb_{cam_seq}.pkl')
+    # start = time.time()
+    lidar_projection(img, lidar_points, pkl_out, img_out)
+    # end = time.time()
+
+
 def main(args: argparse.Namespace):
     """
     Main function
@@ -174,11 +216,7 @@ def main(args: argparse.Namespace):
             folder_name = Path(args.bag).stem
             save_path, folder = get_output_folder(folder_name, output_path,
                                                   args.overwrite)
-            #print(save_path, folder)
-            #print(valid_topics.get('radar')[0])
-            #print(cfg.get('radar_2_topic'))
-            #print(valid_topics)
-            #print(bag_topics)
+
             BagParsing(args, cfg, db, save_path,
                         folder, valid_topics).parse_rosbag()
 
@@ -195,51 +233,128 @@ def main(args: argparse.Namespace):
             else:
                 RuntimeError("Lidar to camera seq sync file doesn't exist!")
 
-            bar_count = 0
+            #bar_count = 0
             if args.progress:
                 lidar_count = len(df_lidar_to_cam.lidar)
                 bar = progressbar.ProgressBar(
                     max_value=lidar_count, prefix='Projecting lidar to camera: ',
                     redirect_stdout=True)
             lidar_seq = df_lidar_to_cam.lidar.values
+
+            payload = []
+
             for seq in lidar_seq:
                 cam_seq = df_lidar_to_cam.set_index('lidar').loc[
                     [seq]].values.reshape(-1)
-                for sq in cam_seq:
-                    img = cv2.imread(
-                        os.path.join(save_path, 'camera', f'seq_{sq}_rgb.png'),
-                        cv2.IMREAD_UNCHANGED)
-                with open(
-                        os.path.join(save_path, 'lidar', f'seq_{seq}_lidar.pkl'), 'rb') as f:
-                    lidar_points = pickle.load(f)
-                img_out = os.path.join(proj_img_dir,
-                                       f'./lidar_{seq}_to_rgb_{cam_seq}.png')
-                pkl_out = os.path.join(proj_pkl_dir,
-                                       f'./lidar_{seq}_to_rgb_{cam_seq}.pkl')
-                lidar_projection(img, lidar_points, pkl_out, img_out)
-                if args.progress:
-                    bar_count += 1
-                    bar.update(bar_count)
-            if args.progress:
-                bar.finish()
+                payload.append((save_path, cam_seq[-1], seq,
+                                proj_img_dir, proj_pkl_dir))
 
-            # proj_radar1_lidar_img_dir =\
-            #     os.path.join(save_path, 'proj_radar1_lidar_img')
-            # proj_radar1_lidar_pkl_dir =\
-            #     os.path.join(save_path, 'proj_radar1_lidar_pkl')
-            # proj_radar2_lidar_img_dir = \
-            #     os.path.join(save_path, 'proj_radar2_lidar_img')
-            # proj_radar2_lidar_pkl_dir = \
-            #     os.path.join(save_path, 'proj_radar2_lidar_pkl')
-            #
-            # for dir_path in [proj_radar1_lidar_img_dir,
-            #                  proj_radar1_lidar_pkl_dir,
-            #                  proj_radar2_lidar_img_dir,
-            #                  proj_radar2_lidar_pkl_dir]:
-            #     if not os.path.exists(dir_path):
-            #         print(f"Create dir: {dir_path}")
-            #         os.mkdir(dir_path)
-            #
+            pool = Pool(8)
+            t_start = time.time()
+            pool.map(lidar_cam_proj_multiproc, payload)
+            t_sec = time.time() - t_start
+            pool.close()
+            print(f'Parallel Lidar-Cam fusion takes {t_sec} sec')
+
+            #     print('Average Time per frame of lidar projection:',
+            #           (end - start) * 1000)
+            #     if args.progress:
+            #         bar_count += 1
+            #         bar.update(bar_count)
+            # if args.progress:
+            #     bar.finish()
+
+            proj_radar1_lidar_img_dir =\
+                 os.path.join(save_path, 'proj_radar1_lidar_img')
+            proj_radar1_lidar_pkl_dir =\
+                 os.path.join(save_path, 'proj_radar1_lidar_pkl')
+            proj_radar2_lidar_img_dir = \
+                 os.path.join(save_path, 'proj_radar2_lidar_img')
+            proj_radar2_lidar_pkl_dir = \
+                 os.path.join(save_path, 'proj_radar2_lidar_pkl')
+
+            for dir_path in [proj_radar1_lidar_img_dir,
+                              proj_radar1_lidar_pkl_dir,
+                              proj_radar2_lidar_img_dir,
+                              proj_radar2_lidar_pkl_dir]:
+                if not os.path.exists(dir_path):
+                    print(f"Create dir: {dir_path}")
+                    os.mkdir(dir_path)
+
+            df_radar1_lidar_cam_sync =\
+               pd.read_csv(os.path.join(save_path,
+                                         'radar1-to-lidar-to-cam-seq-sync.csv'))
+
+            df_radar2_lidar_cam_sync = \
+                pd.read_csv(os.path.join(save_path,
+                                         'radar2-to-lidar-to-cam-seq-sync.csv'))
+
+            radar1_cam_calib =\
+                read_calib_file(os.path.join('config', 'radar1_cam_calib_v2.txt'))
+
+            radar2_cam_calib = \
+                read_calib_file(
+                    os.path.join('config', 'radar1_cam_calib_v2.txt'))
+
+            tr_radar_lidar = np.asarray([[1., 0., 0., 0.3],
+                                         [0., 1., 0., 0.2],
+                                         [0., 0., 1., -0.2]])
+
+            payload = []
+            for i in df_radar1_lidar_cam_sync.index.values:
+                radar_seq = i
+                lidar_seq = df_radar1_lidar_cam_sync.set_index('radar1').\
+                            loc[i].values.reshape(-1)[0]
+                cam_seq = df_radar1_lidar_cam_sync.set_index('radar1'). \
+                    loc[i].values.reshape(-1)[1]
+
+                f_img_base = os.path.join(proj_radar1_lidar_img_dir,
+                    f'radar1[{radar_seq}]_lidar[{lidar_seq}]_cam[{cam_seq}]')
+                f_pkl_base = os.path.join(proj_radar1_lidar_pkl_dir,
+                    f'radar1[{radar_seq}]_lidar[{lidar_seq}]_cam[{cam_seq}]')
+                f_img_out = f'{f_img_base}.png'
+                f_pkl_out = f'{f_pkl_base}.pkl'
+                # f_plot_out = f'{f_base}.png'
+                euclidean_thr = cfg.get("radar_lidar_euclidean_thr")
+
+                payload.append(('radar1', save_path, radar_seq, lidar_seq,
+                                cam_seq, f_img_out, f_pkl_out,radar1_cam_calib,
+                                tr_radar_lidar, euclidean_thr))
+
+            pool = Pool(8)
+            t_start_radar1 = time.time()
+            pool.map(radar_lidar_cam_fusion_multiproc, payload)
+            t_sec_radar1 = time.time() - t_start_radar1
+            pool.close()
+
+            payload = []
+            for i in df_radar2_lidar_cam_sync.index.values:
+                radar_seq = i
+                lidar_seq = df_radar2_lidar_cam_sync.set_index('radar2'). \
+                    loc[i].values.reshape(-1)[0]
+                cam_seq = df_radar2_lidar_cam_sync.set_index('radar2'). \
+                    loc[i].values.reshape(-1)[1]
+
+                f_img_base = os.path.join(proj_radar2_lidar_img_dir,
+                    f'radar2[{radar_seq}]_lidar[{lidar_seq}]_cam[{cam_seq}]')
+                f_pkl_base = os.path.join(proj_radar2_lidar_pkl_dir,
+                    f'radar2[{radar_seq}]_lidar[{lidar_seq}]_cam[{cam_seq}]')
+                f_img_out = f'{f_img_base}.png'
+                f_pkl_out = f'{f_pkl_base}.pkl'
+                # f_plot_out = f'{f_base}.png'
+                euclidean_thr = cfg.get("radar_lidar_euclidean_thr")
+                payload.append(('radar2', save_path, radar_seq, lidar_seq,
+                                cam_seq, f_img_out, f_pkl_out, radar2_cam_calib,
+                                tr_radar_lidar, euclidean_thr))
+
+            pool = Pool(8)
+            t_start_radar2 = time.time()
+            pool.map(radar_lidar_cam_fusion_multiproc, payload)
+            t_sec_radar2 = time.time() - t_start_radar2
+            pool.close()
+            print(f'Parallel radar-lidar-cam fusion for two radar sensors '
+                  f'takes {t_sec_radar1 + t_sec_radar2} sec')
+
 
     # elif args.mode == 'live':
     #   # TODO: need to check whether topics in cfg really available in pipeline

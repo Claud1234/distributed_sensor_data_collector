@@ -2,10 +2,13 @@
 """
 Process data from bag file or live topics, then save in database
 """
+import sys
 import os
 import cv2
 import pickle
 import json
+import time
+from multiprocessing import Queue, Process
 import struct
 import numpy as np
 import pandas as pd
@@ -44,6 +47,101 @@ class SensorParam(object):
                              raspi_cfg['raspi_calib_intri'],
                              raspi_cfg['raspi_calibration_size'])
         return raspi_r
+
+def multiproc(radar_2_topic, radar_1_topic, lidar_topic, image_topic,
+              radar2_seq, radar2_dir, radar1_seq, radar1_dir,
+              lidar_seq, lidar_dir, cam_seq, cam_dir,
+              topic, msg, t):
+    config = vd.Config(model='VLP-32C')
+    decoder = ScanDecoder(config)
+
+    if topic == image_topic:
+        #               start = time.time()
+        # seq = int(msg.header.seq)
+        fn_seq = f'seq_{cam_seq}'
+        rgb = f'{fn_seq}_rgb.png'
+        rgb_path = os.path.join(cam_dir, rgb)
+        rgb_array = cv2.imdecode(np.frombuffer(msg.data, np.uint8), -1)
+        cv2.imwrite(rgb_path, rgb_array)
+        #                end = time.time()
+        #                print('Average Time per frame of rgb D&W:', (end-start) * 1000)
+        # rgb_db_info = {
+        #     'topic': self.cfg.get('image_topic'),
+        #     'file': rgb_path,
+        #     'data': None
+        # }
+        cam_seq += 1
+
+    elif topic == lidar_topic:
+        # seq = int(msg.header.seq)
+        #               start = time.time()
+        fn_seq = f'seq_{lidar_seq}'
+        points = decoder.decode_message(msg, as_pcl_structs=False)
+        lidar = f'{fn_seq}_lidar.pkl'
+        lidar_path = os.path.join(lidar_dir, lidar)
+        with open(lidar_path, 'wb') as f:
+            pickle.dump(points, f)
+        #              end = time.time()
+        #              print('Average Time per frame of lidar D&W:',
+        #                  (end - start) * 1000)
+        # lidar_db_info = {
+        #     'topic': self.cfg.get('lidar_topic'),
+        #     'file': lidar_path,
+        #     'data': None
+        # }
+        lidar_seq += 1
+
+    elif topic == radar_1_topic:
+        points = []
+        fn_seq = f'seq_{radar1_seq}'
+        radar1 = f'{fn_seq}_radar1.json'
+        radar1_path = os.path.join(radar1_dir, radar1)
+        i = 0
+        for _ in range(msg.width * msg.height):
+            point_data = msg.data[i:(i + msg.point_step - 1)]
+            i += msg.point_step
+            point = dict()
+            for field in msg.fields:
+                format_str = '<f'
+                ba = bytearray(
+                    point_data[field.offset:field.offset + 4])
+                data = struct.unpack(format_str, ba)
+                point[field.name] = data
+            points.append(point)
+            with open(radar1_path, 'w') as f:
+                json.dump(points, f, indent=4, sort_keys=True)
+            # radar_1_db_info = {
+            #     'topic': self.cfg.get('radar_1_topic'),
+            #     'file': radar1_path,
+            #     'data': None
+            # }
+        radar1_seq += 1
+    #
+    elif topic == radar_2_topic:
+        points = []
+        fn_seq = f'seq_{radar2_seq}'
+        radar2 = f'{fn_seq}_radar2.json'
+        radar2_path = os.path.join(radar2_dir, radar2)
+        i = 0
+        for _ in range(msg.width * msg.height):
+            point_data = msg.data[i:(i + msg.point_step - 1)]
+            i += msg.point_step
+            point = dict()
+            for field in msg.fields:
+                format_str = '<f'
+                ba = bytearray(
+                    point_data[field.offset:field.offset + 4])
+                data = struct.unpack(format_str, ba)
+                point[field.name] = data
+            points.append(point)
+            with open(radar2_path, 'w') as f:
+                json.dump(points, f, indent=4, sort_keys=True)
+                # radar_2_db_info = {
+                #     'topic': self.cfg.get('radar_2_topic'),
+                #     'file': radar2_path,
+                #     'data': None
+                # }
+        radar2_seq += 1
 
 
 class BagParsing(object):
@@ -96,10 +194,12 @@ class BagParsing(object):
         print("\nTopics in bag:")
         print(self.bag_topics)
         return self.bag_topics
-        
+
+
+
     def parse_rosbag(self):
-        config = vd.Config(model='VLP-32C')
-        decoder = ScanDecoder(config)
+        # Counting the bag reading time
+        t_start = time.time()
         bag = rosbag.Bag(self.args.bag)
         # # Timestamp for the file
         # timestamp = os.path.getmtime(self.args.bag)
@@ -108,6 +208,12 @@ class BagParsing(object):
         cam_msg_gen = bag.read_messages(topics=self.cfg.get('image_topic'))
         radar1_msg_gen = bag.read_messages(topics=self.cfg.get('radar_1_topic'))
         radar2_msg_gen = bag.read_messages(topics=self.cfg.get('radar_2_topic'))
+
+        t_sec = time.time() - t_start
+        print(f'Bag message reading took {t_sec} sec')
+
+        # Counting the synchronization time
+        t_start = time.time()
 
         np_nsec_lidar = np.asarray(
             [msg.timestamp.to_nsec() for msg in lidar_msg_gen])
@@ -174,6 +280,9 @@ class BagParsing(object):
         df_seq_match_r2lc \
             .to_csv(self.save_path + '/radar2-to-lidar-to-cam-seq-sync.csv')
 
+        t_sec = time.time() - t_start
+        print(f'Sychronization done in: {t_sec} seconds')
+
         lidar_dir = os.path.join(self.save_path, 'lidar')
         cam_dir = os.path.join(self.save_path, 'camera')
         radar1_dir = os.path.join(self.save_path, 'radar1')
@@ -197,95 +306,57 @@ class BagParsing(object):
         lidar_seq = 0
         radar1_seq = 0
         radar2_seq = 0
+
+        # Counting time on writing files
+
+        eof = 'EOF'
+        _queue = Queue(2048)
+        def __worker(_queue):
+            t_start = time.time()
+            while True:
+                _args = _queue.get()
+                if _args == 'EOF':
+                    break
+                multiproc(*_args)
+            t_sec = time.time() - t_start
+            print(f'Parallel raw files writing took {t_sec} sec')
+
+        procs = [Process(target=__worker, args=[_queue]) for _ in range(8)]
+        for p in procs:
+            p.start()
+
         for topic, msg, t in bag.read_messages():
-
+            _args = (self.cfg.get('radar_2_topic'),
+                     self.cfg.get('radar_1_topic'),
+                     self.cfg.get('lidar_topic'),
+                     self.cfg.get('image_topic'),
+                     radar2_seq, radar2_dir, radar1_seq, radar1_dir,
+                     lidar_seq, lidar_dir, cam_seq, cam_dir,
+                     topic, msg, t)
+            _queue.put(_args)
             if topic == self.cfg.get('image_topic'):
-                #seq = int(msg.header.seq)
-                fn_seq = f'seq_{cam_seq}'
-                rgb = f'{fn_seq}_rgb.png'
-                rgb_path = os.path.join(cam_dir, rgb)
-                rgb_array = cv2.imdecode(np.frombuffer(msg.data, np.uint8), -1)
-                cv2.imwrite(rgb_path, rgb_array)
-                rgb_db_info = {
-                    'topic': self.cfg.get('image_topic'),
-                    'file': rgb_path,
-                    'data': None
-                }
                 cam_seq += 1
-
             elif topic == self.cfg.get('lidar_topic'):
-                #seq = int(msg.header.seq)
-                fn_seq = f'seq_{lidar_seq}'
-                points = decoder.decode_message(msg, as_pcl_structs=False)
-                lidar = f'{fn_seq}_lidar.pkl'
-                lidar_path = os.path.join(lidar_dir, lidar)
-                with open(lidar_path, 'wb') as f:
-                    pickle.dump(points, f)
-                lidar_db_info = {
-                    'topic': self.cfg.get('lidar_topic'),
-                    'file': lidar_path,
-                    'data': None
-                }
                 lidar_seq += 1
-
             elif topic == self.cfg.get('radar_1_topic'):
-                points = []
-                fn_seq = f'seq_{radar1_seq}'
-                radar1 = f'{fn_seq}_radar1.json'
-                radar1_path = os.path.join(radar1_dir, radar1)
-                i = 0
-                for _ in range(msg.width * msg.height):
-                    point_data = msg.data[i:(i + msg.point_step - 1)]
-                    i += msg.point_step
-                    point = dict()
-                    for field in msg.fields:
-                        format_str = '<f'
-                        ba = bytearray(
-                            point_data[field.offset:field.offset + 4])
-                        data = struct.unpack(format_str, ba)
-                        point[field.name] = data
-                    points.append(point)
-                    with open(radar1_path, 'w') as f:
-                        json.dump(points, f, indent=4, sort_keys=True)
-                    radar_1_db_info = {
-                        'topic': self.cfg.get('radar_1_topic'),
-                        'file': radar1_path,
-                        'data': None
-                    }
                 radar1_seq += 1
-
             elif topic == self.cfg.get('radar_2_topic'):
-                points = []
-                fn_seq = f'seq_{radar2_seq}'
-                radar2 = f'{fn_seq}_radar2.json'
-                radar2_path = os.path.join(radar2_dir, radar2)
-                i = 0
-                for _ in range(msg.width * msg.height):
-                    point_data = msg.data[i:(i + msg.point_step - 1)]
-                    i += msg.point_step
-                    point = dict()
-                    for field in msg.fields:
-                        format_str = '<f'
-                        ba = bytearray(
-                            point_data[field.offset:field.offset + 4])
-                        data = struct.unpack(format_str, ba)
-                        point[field.name] = data
-                    points.append(point)
-                    with open(radar2_path, 'w') as f:
-                        json.dump(points, f, indent=4, sort_keys=True)
-                    radar_2_db_info = {
-                        'topic': self.cfg.get('radar_2_topic'),
-                        'file': radar2_path,
-                        'data': None
-                    }
                 radar2_seq += 1
+            else:
+                pass
+        for _ in range(8):
+            _queue.put(eof)
+            # if self.args.progress:
+            #     bar.update(prog_bar_counter)
+            # prog_bar_counter += 1
 
-            if self.args.progress:
-                bar.update(prog_bar_counter)
-            prog_bar_counter += 1
 
-        if self.args.progress:
-            bar.finish()
+        for p in procs:
+            p.join()
+
+
+        # if self.args.progress:
+        #     bar.finish()
 
 
 
