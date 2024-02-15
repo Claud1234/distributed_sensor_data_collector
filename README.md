@@ -1,5 +1,26 @@
-# Finest Mobility
-This is the database and dataset for Finest Pilot project. 
+# End-to-End Multimodal Sensor Dataset Collection Framework for Autonomous Vehicles 
+This is the source code for paper: https://doi.org/10.3390/s23156783
+
+Cite as:
+```
+@Article{s23156783,
+AUTHOR = {Gu, Junyi and Lind, Artjom and Chhetri, Tek Raj and Bellone, Mauro and Sell, Raivo},
+TITLE = {End-to-End Multimodal Sensor Dataset Collection Framework for Autonomous Vehicles},
+JOURNAL = {Sensors},
+VOLUME = {23},
+YEAR = {2023},
+NUMBER = {15},
+ARTICLE-NUMBER = {6783},
+URL = {https://www.mdpi.com/1424-8220/23/15/6783},
+PubMedID = {37571566},
+ISSN = {1424-8220},
+DOI = {10.3390/s23156783}
+}
+```
+
+TO BE CONTINUE.....
+
+
 
 ## Database 
 The database was dumped in docker. Please make sure you have the docker compose installed in your system. 
